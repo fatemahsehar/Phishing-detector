@@ -211,7 +211,7 @@ st.markdown("""
 .scan-hero p { color: #cfdee8; max-width: 38rem; margin: .7rem 0 0; }
 </style>
 <section class="scan-hero" aria-labelledby="scan-title">
-  <div class="tag">PHISHING URL DETECTOR · RESEARCH DEMO</div>
+
   <h1 id="scan-title">Inspect the link.
 Before the click.</h1>
   <p>Paste a URL to check for signs of phishing without visiting the destination.</p>
@@ -228,7 +228,7 @@ with st.sidebar:
     st.markdown(
         "- **High risk:** score of 0.70 or above.\n"
         "- **Suspicious:** score of 0.40 to below 0.70, or a possible lookalike.\n"
-        "- **Lower risk:** below 0.40 with no lookalike warning. Not a guarantee of safety."
+        "- **Lower risk:** below 0.40 with no look alike warning. Not a guarantee of safety."
     )
 
 tab1, tab2, tab3, tab4 = st.tabs(
@@ -241,7 +241,7 @@ with tab1:
         st.caption("Try an example or paste your own. Avoid sharing private links or access tokens.")
         examples = [
             ("Regular link", "https://example.org/"),
-            ("Lookalike demo", "https://paypa1.invalid/"),
+            ("Look alike demo", "https://paypa1.invalid/"),
             ("IP address demo", "http://192.0.2.25/login"),
         ]
         for col, (label, example) in zip(st.columns(3), examples):
