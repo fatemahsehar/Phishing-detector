@@ -13,13 +13,13 @@ st.set_page_config(page_title="LinkGuard", page_icon="🛡️", layout="wide")
 
 OPENPHISH_URL = "https://openphish.com/feed.txt"
 UA = {"User-Agent": "Mozilla/5.0 (LinkGuard research project)"}
+ENGINE = "v4"
 
 BRANDS = ["google","microsoft","apple","amazon","paypal","netflix","facebook","chase","instagram","youtube","whatsapp","binance","linkedin","outlook","dropbox","coinbase","dhl","fedex","wellsfargo","bankofamerica","icloud","steam","spotify","adobe","github","stripe"]
 SUSPICIOUS = ["login","signin","verify","update","secure","account","confirm","password","credential","banking","wallet","recover","suspend","unlock","billing","invoice","auth","validate","security"]
 RISKY_TLD = {"xyz","top","click","site","online","ml","ga","cf","tk","work","live","buzz","icu","cyou","cfd","sbs","gq","pw"}
 COMMON_TLD = {"com","org","net","edu","gov","ai","io","app","dev","co","me","so","uk","de","fr","ca","au","jp","in","nl","es","it","br"}
 SECOND_SUFFIX = {"co.uk","org.uk","ac.uk","gov.uk","com.au","co.in","com.br","co.jp","com.mx","com.tr","co.za","com.sg"}
-
 DEV_HOSTING = {"streamlit.app","vercel.app","netlify.app","github.io","firebaseapp.com","pages.dev","workers.dev","herokuapp.com","glitch.me","web.app","stackblitz.com","repl.co","codepen.io","jsfiddle.net"}
 
 KNOWN_LEGIT_DOMAINS = {
@@ -37,6 +37,7 @@ KNOWN_LEGIT_DOMAINS = {
     "mit.edu","harvard.edu","oxford.ac.uk","cambridge.ac.uk","gov.uk","usa.gov","nih.gov","arena.ai",
     "perplexity.ai","claude.ai","character.ai","together.ai","stability.ai","elevenlabs.io","wandb.ai",
     "replit.com","supabase.com","mongodb.com","docker.com","kubernetes.io","npmjs.com","pypi.org",
+    "sideshift.app","changelly.com","coinbase.com","kraken.com","gemini.com","bitfinex.com",
 }
 
 WORD1 = ["bright","green","blue","river","city","global","smart","prime","united","national","digital","open","north","south","royal","happy","quick","fresh","great","modern"]
@@ -45,52 +46,11 @@ TOPICS = ["technology","students","learning","health","climate","business","spor
 SYLLABLES = ["a","be","ca","do","en","fi","go","ha","ka","lo","mi","no","pa","ra","re","ro","sa","ta","to","va","ve","za","ar","er","in","on","or","al","el","il","an","un","ex"]
 DEV_HOSTS_WEIGHTED = ["streamlit.app","streamlit.app","streamlit.app","vercel.app","vercel.app","netlify.app","netlify.app","github.io","github.io","firebaseapp.com","pages.dev","workers.dev","herokuapp.com","glitch.me"]
 DEV_NAMES = ["myapp","project","demo","site","app","tool","page","dashboard","portfolio","blog","api","store","learn","notes","docs","link","scan","check","guard","lab","work","portal","panel","hub","box"]
+LEGIT_SUBS = ["","www.","app.","api.","portal.","my.","dashboard.","docs.","support.","m.","beta.","staging."]
+LEGIT_QUERIES = ["","?tab=1","?page=2","?lang=en","?view=grid","?sort=recent","?filter=all","?q=hello","?ref=home","?utm_source=mail"]
 
 LEGIT_QUERY_PARAMS = {"q","v","list","page","ref","lang","th","qid","index","hl","source","tab","s","utm_source","utm_medium","start","sort","filter","category","type","mode","view","from","to","next","sp","ei","ved","oq","gs_l","pb","gws","cad","ct","id"}
 PHISH_QUERY_PARAMS = {"token","session","redirect","verify","auth","login","password","email","user","account","otp","code","pass","pwd","secret","key","sig","sign","callback","return","target","url"}
-LEGIT_PATH_SEGMENTS = {
-    "watch","search","wiki","blog","news","articles","docs","products","dp","reel","video",
-    "account","settings","profile","login","signin","about","contact","pricing","features",
-    "help","support","faq","privacy","terms","download","community","guide","library",
-    "courses","students","apply","store","shop","home","index","app","api","demo","preview",
-    "create","edit","update","save","submit","share","comment","follow","subscribe","signup",
-    "join","learn","study","read","listen","play","buy","cart","checkout","order","track",
-    "status","history","recent","popular","trending","latest","sale","deal","discount",
-    "coupon","gift","wallet","pay","invoice","statement","transfer","deposit","withdraw",
-    "invest","trade","market","stock","crypto","flight","hotel","trip","travel","map",
-    "route","weather","traffic","alert","notice","announcement","release","version",
-    "changelog","company","team","career","job","hiring","resume","portfolio","project",
-    "work","case","study","example","sample","template","tool","utility","widget","plugin",
-    "extension","module","package","sdk","endpoint","handler","controller","model","view",
-    "component","element","button","input","form","field","label","text","image","audio",
-    "music","song","album","playlist","show","episode","season","series","movie","film",
-    "concert","festival","event","game","gaming","level","quest","mission","goal","vision",
-    "value","principle","law","rule","regulation","policy","guideline","standard","culture",
-    "society","public","private","personal","individual","group","organization","business",
-    "enterprise","firm","agency","department","division","section","branch","office","location",
-    "address","phone","mail","letter","message","note","summary","overview","introduction",
-    "conclusion","abstract","thesis","paper","article","essay","report","document","file",
-    "record","log","journal","diary","post","entry","item","data","information","knowledge",
-    "insight","understanding","awareness","perception","cognition","thought","idea","concept",
-    "notion","belief","opinion","perspective","position","stance","attitude","mood","feeling",
-    "emotion","sentiment","state","condition","situation","context","environment","setting",
-    "scene","scenario","instance","illustration","demonstration","proof","evidence","test",
-    "trial","experiment","research","investigation","inquiry","examination","analysis",
-    "evaluation","assessment","review","audit","inspection","check","verification","validation",
-    "confirmation","certification","approval","endorsement","backing","sponsorship","funding",
-    "financing","investment","capital","asset","liability","equity","profit","revenue","income",
-    "earnings","sales","turnover","margin","cost","expense","spending","budget","forecast",
-    "projection","estimate","prediction","trends","pattern","cycle","wave","pulse","beat",
-    "rhythm","tempo","pace","speed","velocity","force","power","energy","strength","weakness",
-    "vulnerability","risk","threat","danger","hazard","peril","menace","alarm","caution",
-    "advice","recommendation","suggestion","tip","hint","clue","pointer","direction",
-    "instruction","guidance","counsel","advisory","notification","bulletin","circular",
-    "dispatch","communique","declaration","proclamation","pronouncement","verdict","ruling",
-    "judgment","decision","determination","resolution","outcome","result","consequence",
-    "effect","impact","influence","implication","significance","importance","relevance",
-    "pertinence","applicability","suitability","fitness","appropriateness","properness",
-    "rightness","correctness","accuracy","precision","exactness",
-}
 
 
 def safe_urlparse(url):
@@ -195,15 +155,12 @@ def features(url):
     digits = sum(c.isdigit() for c in url)
     specials = sum(not c.isalnum() for c in url)
     sim, is_near, _ = brand_lookalike_score(label)
-
     qparams = set()
     if query:
         for pair in query.split("&"):
             k = pair.split("=", 1)[0].strip().lower()
             if k:
                 qparams.add(k)
-    path_segs = set(s.lower() for s in path.split("/") if s)
-
     return {
         "url_length": len(url), "host_length": len(h), "domain_length": len(label),
         "path_length": len(path), "query_length": len(query),
@@ -228,7 +185,6 @@ def features(url):
         "brand_in_path": int(any(b in (path + query).lower() for b in BRANDS) and label not in BRANDS),
         "legit_query_params": sum(1 for k in qparams if k in LEGIT_QUERY_PARAMS),
         "phish_query_params": sum(1 for k in qparams if k in PHISH_QUERY_PARAMS),
-        "legit_path_segments": sum(1 for s in path_segs if s in LEGIT_PATH_SEGMENTS),
         "url_entropy": round(calc_entropy(url), 3), "host_entropy": round(calc_entropy(h), 3),
         "has_double_slash_path": int("//" in path),
     }
@@ -268,11 +224,11 @@ def make_legit(rng):
         host = rng.choice(DEV_HOSTS_WEIGHTED)
         name = rng.choice(DEV_NAMES)
         randhash = "".join(rng.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=rng.randint(10, 16)))
-        path = rng.choice(["", "/", "/about", "/docs", "/settings", "/?tab=1", "/v2", "/help"])
-        return f"https://{name}-{randhash}.{host}{path}"
+        path = rng.choice(["", "/", "/about", "/docs", "/settings", "/v2", "/help"])
+        return f"https://{name}-{randhash}.{host}{path}{rng.choice(LEGIT_QUERIES)}"
     if kind < 0.34:
         base = rng.choice(sorted(KNOWN_LEGIT_DOMAINS))
-        sub = rng.choice(["", "www.", "m.", "docs.", "support.", "blog."])
+        sub = rng.choice(LEGIT_SUBS)
         p = rng.choice([
             f"/watch?v={''.join(rng.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_', k=11))}&list=PLabc&index={rng.randint(1,50)}",
             f"/search?q={'+'.join(rng.choices(TOPICS, k=4))}&page={rng.randint(1,10)}&lang=en",
@@ -286,17 +242,18 @@ def make_legit(rng):
         base = rng.choice(["bbc.com","cnn.com","reuters.com","nytimes.com","theguardian.com","aljazeera.com","bloomberg.com","forbes.com","techcrunch.com","wired.com","apnews.com","npr.org"])
         slug = "-".join(rng.choices(TOPICS, k=rng.randint(4, 7)))
         return f"https://www.{base}/{rng.choice(['news','articles','blog','guide'])}/{slug}-{rng.randint(10000,99999)}"
-    if kind < 0.76:
+    if kind < 0.78:
+        # Unknown-looking business domains WITH subdomains + queries (so the model learns these are normal)
         sep = "-" if rng.random() < 0.2 else ""
-        domain = f"{rng.choice(WORD1)}{sep}{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co'])}"
-        sub = rng.choice(["", "www.", "support.", "blog.", "shop."])
-        path = rng.choice(["", "/", "/about", "/services", "/contact", "/pricing", "/blog", "/products", "/team", "/article/" + str(rng.randint(100, 99999))])
-        return f"https://{sub}{domain}{path}"
+        domain = f"{rng.choice(WORD1)}{sep}{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co','app'])}"
+        sub = rng.choice(LEGIT_SUBS)
+        path = rng.choice(["", "/", "/about", "/services", "/contact", "/pricing", "/blog", "/products", "/team", "/explore", "/dashboard", "/article/" + str(rng.randint(100, 99999))])
+        return f"https://{sub}{domain}{path}{rng.choice(LEGIT_QUERIES)}"
     if kind < 0.90:
-        base = rng.choice(["paypal.com","chase.com","bankofamerica.com","google.com","microsoft.com","apple.com","amazon.com","netflix.com"])
-        sub = rng.choice(["", "www.", "accounts.", "login.", "secure."])
-        path = rng.choice(["/login", "/signin", "/account/settings", "/accounts/login/", "/profile", "/dashboard", "/billing"])
-        return f"https://{sub}{base}{path}"
+        base = rng.choice(["paypal.com","chase.com","bankofamerica.com","google.com","microsoft.com","apple.com","amazon.com","netflix.com","sideshift.app"])
+        sub = rng.choice(["", "www.", "accounts.", "login.", "secure.", "app."])
+        path = rng.choice(["/login", "/signin", "/account/settings", "/accounts/login/", "/profile", "/dashboard", "/billing", "/explore"])
+        return f"https://{sub}{base}{path}{rng.choice(LEGIT_QUERIES)}"
     domain = rng.choice(["stanford.edu","mit.edu","harvard.edu","oxford.ac.uk","gov.uk","usa.gov","nih.gov"])
     sub = rng.choice(["", "www.", "students.", "courses."])
     path = rng.choice(["/courses/intro-to-cs/module-1","/students/resources/library-guide","/about/departments","/news/research-update","/forms/apply"])
@@ -345,27 +302,23 @@ def load_real_data():
                 phish_source = f"OpenPhish live feed ({len(phish_urls):,} real URLs)"
     except Exception:
         pass
-
     n_target = 4000
     if len(phish_urls) < n_target:
         for _ in range(n_target - len(phish_urls)):
             phish_urls.append(make_phish(rng))
-        if phish_source:
-            phish_source += f" + {n_target - len(phish_urls):,} pattern-based"
-        else:
-            phish_source = f"Pattern-based ({n_target:,}) - OpenPhish unavailable"
+        phish_source = (phish_source + f" + {n_target - len(phish_urls):,} pattern-based") if phish_source else f"Pattern-based ({n_target:,}) - OpenPhish unavailable"
 
     legit_urls = []
-    legit_domains = sorted(KNOWN_LEGIT_DOMAINS) + [f"{rng.choice(WORD1)}-{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co'])}" for _ in range(120)]
+    legit_domains = sorted(KNOWN_LEGIT_DOMAINS) + [f"{rng.choice(WORD1)}-{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co','app'])}" for _ in range(150)]
     rng.shuffle(legit_domains)
     for i in range(n_target):
         d = legit_domains[i % len(legit_domains)]
-        legit_urls.append(make_legit(rng) if rng.random() < 0.5 else f"https://{d}{rng.choice(['','/','/about','/docs','/help','/blog','/products','/account','/login','/settings','/search?q=hello'])}")
-    legit_source = f"Real top domains ({len(KNOWN_LEGIT_DOMAINS):,}) + realistic paths"
+        legit_urls.append(make_legit(rng) if rng.random() < 0.6 else f"https://{rng.choice(LEGIT_SUBS)}{d}{rng.choice(['','/','/about','/docs','/help','/blog','/products','/account','/login','/settings','/explore'])}{rng.choice(LEGIT_QUERIES)}")
+    legit_source = f"Real top domains ({len(KNOWN_LEGIT_DOMAINS):,}) + realistic subdomains/paths/queries"
     return phish_urls, legit_urls, {"phish": phish_source, "legit": legit_source}
 
 
-@st.cache_resource(show_spinner="Loading real data and training models... (first load ~15 seconds)")
+@st.cache_resource(show_spinner="Loading data and training models... (first load ~15 seconds)")
 def train_models():
     phish_urls, legit_urls, source = load_real_data()
     urls = legit_urls + phish_urls
@@ -433,25 +386,35 @@ def train_models():
 vec, char_m, struct_m, cols, metrics = train_models()
 
 
-def hard_indicator(url):
+def flags(url):
+    """Return (hard, medium) boolean flags based on concrete phishing evidence."""
     p = safe_urlparse(url) or urlparse("")
     h = (p.hostname or "").lower()
     f = features(url)
-    if f["has_ip"] or f["has_at"] or f["has_punycode"]:
-        return True
     _, is_near, _ = brand_lookalike_score(main_label(h))
-    if is_near:
-        return True
-    if f["risky_tld"] and (f["host_keywords"] > 0 or f["near_brand_domain"]):
-        return True
-    return False
+    hard = (f["has_ip"] or f["has_at"] or f["has_punycode"] or is_near)
+    hard = hard or (f["risky_tld"] and (f["host_keywords"] > 0 or f["near_brand_domain"]))
+    medium = (f["risky_tld"] or f["host_keywords"] > 0 or f["subdomain_count"] >= 2
+              or f["hyphens_in_host"] >= 3 or f["phish_query_params"] >= 2
+              or f["digits_in_host"] >= 4 or f["is_https"] == 0)
+    return hard, medium
+
+
+def decision(url, score):
+    """Two-stage decision: concrete indicators set the tier, ML score refines it.
+    A URL with NO phishing indicators is never High risk from the model alone."""
+    hard, medium = flags(url)
+    if hard:
+        return "High phishing risk" if score >= 0.70 else "Suspicious — investigate carefully"
+    if medium:
+        return "High phishing risk" if score >= 0.70 else "Suspicious — investigate carefully"
+    return "Lower model-estimated risk"
 
 
 def indicators(url):
     p = safe_urlparse(url) or urlparse("")
     h = (p.hostname or "").lower()
     f = features(url)
-    reg = registered_from_host(h)
     notes = []
     if f["has_ip"]: notes.append("Uses an IP address instead of a domain name")
     if p.scheme != "https": notes.append("Does not use HTTPS")
@@ -483,25 +446,6 @@ def analyze(url):
     pc = float(char_m.predict_proba(vec.transform([url]))[0][1])
     ps = float(struct_m.predict_proba(pd.DataFrame([features(url)])[cols])[0][1])
     return pc, ps, 0.5 * pc + 0.5 * ps
-
-
-def risk_label(url, score):
-    p = safe_urlparse(url) or urlparse("")
-    h = (p.hostname or "").lower()
-    reg = registered_from_host(h)
-    if hard_indicator(url):
-        if score >= 0.70: return "High phishing risk"
-        if score >= 0.40: return "Suspicious — investigate carefully"
-        return "Lower model-estimated risk"
-    if reg in DEV_HOSTING:
-        if score >= 0.55: return "Suspicious — investigate carefully"
-        return "Lower model-estimated risk"
-    if reg in KNOWN_LEGIT_DOMAINS:
-        if score >= 0.55: return "Suspicious — investigate carefully"
-        return "Lower model-estimated risk"
-    if score >= 0.70: return "High phishing risk"
-    if score >= 0.40: return "Suspicious — investigate carefully"
-    return "Lower model-estimated risk"
 
 
 def set_url(u):
@@ -545,13 +489,13 @@ section[data-testid="stSidebar"] * { color: #cbd5e1; }
 """, unsafe_allow_html=True)
 
 src = metrics["source"]
-st.caption(f"Phishing: {src['phish']} · Legitimate: {src['legit']} · Train: {metrics['train']:,} · Test: {metrics['test']:,} ({metrics['unique_test_domains']:,} unseen domains)")
+st.caption(f"engine {ENGINE} · Phishing: {src['phish']} · Legitimate: {src['legit']} · Train: {metrics['train']:,} · Test: {metrics['test']:,} ({metrics['unique_test_domains']:,} unseen domains)")
 
 with st.sidebar:
     st.header("How to read a result")
-    st.markdown("- **High risk:** score of 0.70 or above.\n- **Suspicious:** score of 0.40 to below 0.70, or a brand lookalike.\n- **Lower risk:** below 0.40 with no lookalike warning.")
+    st.markdown("- **High risk:** concrete phishing evidence present.\n- **Suspicious:** some warning signs, or a lookalike brand.\n- **Lower risk:** no phishing indicators detected.")
     st.divider()
-    st.caption("Scores are model estimates, not calibrated probabilities.")
+    st.caption("A URL with no phishing indicators is never High risk from the model alone. Scores are estimates, not probabilities.")
 
 tab1, tab2, tab3, tab4 = st.tabs(["Scan a URL", "Batch Check", "Model Performance", "How It Works"])
 
@@ -573,7 +517,7 @@ with tab1:
             st.session_state["result"] = {"url": candidate, "char": pc, "struct": ps, "combined": combined, "notes": indicators(candidate), "info": domain_info(candidate)}
     r = st.session_state.get("result")
     if r and r["url"] == url.strip():
-        verdict = risk_label(r["url"], r["combined"])
+        verdict = decision(r["url"], r["combined"])
         st.subheader("Assessment")
         if verdict.startswith("High"): st.error(verdict)
         elif verdict.startswith("Suspicious"): st.warning(verdict)
@@ -584,12 +528,12 @@ with tab1:
         b.metric("Structural model", f"{r['struct']:.3f}")
         c.metric("Combined score", f"{r['combined']:.3f}")
         st.progress(min(max(r["combined"], 0.0), 1.0))
-        st.caption("Combined = 0.5 × Character + 0.5 × Structural. A domain-reputation safety net applies to known platforms and major brands.")
+        st.caption("Combined = 0.5 × Character + 0.5 × Structural. The final label combines this score with concrete phishing indicators.")
         with st.expander("Rule-based indicators", expanded=True):
             for note in r["notes"]: st.text(f"• {note}")
             if not r["notes"]: st.write("No rule-based indicators triggered.")
         with st.expander("Domain details"): st.json(r["info"])
-        report = (f"LinkGuard Report\n\nURL: {r['url']}\nAssessment: {verdict}\nCharacter: {r['char']:.3f}\nStructural: {r['struct']:.3f}\nCombined: {r['combined']:.3f}\n\nIndicators:\n"
+        report = (f"LinkGuard Report ({ENGINE})\n\nURL: {r['url']}\nAssessment: {verdict}\nCharacter: {r['char']:.3f}\nStructural: {r['struct']:.3f}\nCombined: {r['combined']:.3f}\n\nIndicators:\n"
                   + "\n".join("- " + n for n in (r["notes"] or ["None"])))
         st.download_button("Download report", report, "linkguard_report.txt", "text/plain")
 
@@ -600,7 +544,7 @@ with tab2:
         for u in [x.strip() for x in text.splitlines() if x.strip()]:
             if is_valid_http_url(u):
                 pc, ps, cb = analyze(u)
-                rows.append({"URL": u, "Character": round(pc, 3), "Structural": round(ps, 3), "Combined": round(cb, 3), "Risk": risk_label(u, cb)})
+                rows.append({"URL": u, "Character": round(pc, 3), "Structural": round(ps, 3), "Combined": round(cb, 3), "Risk": decision(u, cb)})
             else:
                 rows.append({"URL": u, "Character": "-", "Structural": "-", "Combined": "-", "Risk": "Invalid"})
         out = pd.DataFrame(rows)
@@ -645,28 +589,30 @@ with tab3:
     st.bar_chart(imp.set_index("Feature"))
 
 with tab4:
-    st.code("URL -> Validate -> Extract features + Character n-grams -> 2 Models -> 50/50 Average -> Domain-reputation safety net -> Risk + Indicators")
-    st.markdown("""
+    st.code("URL -> Validate -> Extract features + Character n-grams -> 2 Models -> 50/50 Score -> Indicator-based decision policy -> Risk + Indicators")
+    st.markdown(f"""
+**Decision policy (engine {ENGINE}):**
+The ML ensemble produces a 0–1 risk score. A rule-based policy then maps that score plus concrete phishing indicators to the final label:
+- **High risk** — concrete evidence present (IP address, lookalike brand, `@`, punycode, risky TLD with credential keywords) and a high model score.
+- **Suspicious** — some warning signs (risky TLD, keywords in domain, many subdomains, non-HTTPS), or a lookalike brand.
+- **Lower risk** — no phishing indicators detected. A clean URL is never High risk from the model alone.
+
+**Why this design:** ML-only URL classifiers over-flag unseen but clean domains, because they can only recognize patterns they were trained on. Capping the label by concrete indicators prevents false positives on legitimate sites (developer deployments, real businesses, crypto platforms) while still catching phishing that shows real signals. This mirrors production tools that combine ML scores with reputation and rule-based checks.
+
 **Models used:**
-- **Character Model:** TF-IDF (3–5 character n-grams) + Logistic Regression. Learns suspicious character sequences and misspellings.
-- **Structural Model:** Random Forest (300 trees) on 40+ numerical URL features (lengths, dots, hyphens, digits, entropy, HTTPS, IP, subdomain depth, keyword location, query/path analysis, brand similarity, dev-hosting, known domains).
-- **Ensemble:** 50/50 average of both model scores.
+- **Character Model:** TF-IDF (3–5 character n-grams) + Logistic Regression. Learns misspellings and suspicious character sequences.
+- **Structural Model:** Random Forest (300 trees) on 40+ numerical features (lengths, dots, hyphens, digits, entropy, HTTPS, IP, subdomain depth, keyword location, query/path analysis, brand similarity, dev-hosting, known domains).
+- **Ensemble:** 50/50 average.
 
-**Why long URLs with queries are not automatically flagged:**
-The training set is balanced so both legitimate and phishing URLs span short to long, with and without queries and random IDs. Legitimate long URLs (video links, search results, product pages, news articles, dev-hosting apps) are heavily represented. The model therefore relies on real signals (TLD, lookalike brand, IP, keywords-in-domain) rather than length alone.
+**Thresholds:** 0.70 separates High from Suspicious within a flag tier; chosen from the Threshold Analysis table to keep precision high for the High label.
 
-**Domain-reputation safety net:**
-URLs on known free dev platforms (Streamlit, Vercel, Netlify, GitHub Pages, Firebase, etc.) and known major legitimate domains are capped at "Suspicious" rather than "High" unless a hard indicator (IP address, lookalike brand, punycode, '@', or risky TLD with credential keywords) is present. This reduces false positives on legitimate developer deployments and well-known sites. Trade-off: a phisher could host on a free dev platform to evade the cap — a known limitation of URL-only detection.
+**Domain-separated testing:** URLs are grouped by registered domain before a 75/25 train/test split, so the model is evaluated on domains it has never seen.
 
-**How were the 0.40 and 0.70 thresholds chosen?**
-From the Threshold Analysis table: 0.40 keeps recall high while holding false positives low; 0.70 keeps precision high for the High Risk label.
-
-**Domain-separated testing:**
-URLs are grouped by registered domain before a 75/25 train/test split, so the model is always evaluated on domains it has never seen.
+**Known limitation:** a phishing URL with no indicators at all (a clean `.com` domain, HTTPS, no keywords, no lookalike) can be missed. URL-only analysis cannot inspect page content, certificates, or domain age.
 
 **Data sources:**
-- Phishing URLs: OpenPhish live verified feed (openphish.com) + realistic pattern-based examples.
-- Legitimate URLs: real top popular domains with realistic path and query variations.
+- Phishing: OpenPhish live verified feed (openphish.com) + realistic pattern-based examples.
+- Legitimate: real top popular domains with realistic subdomain, path, and query variations.
 """)
 
 st.caption("Scores are model estimates. A low score does not guarantee a site is safe.")
