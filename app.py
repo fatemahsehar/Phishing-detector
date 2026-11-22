@@ -181,48 +181,140 @@ def analyze(url):
 
 def set_url(u): st.session_state["url_input"] = u
 if "url_input" not in st.session_state: st.session_state["url_input"] = "https://google.com"
+st.markdown("""
+<style>
+.scan-hero {
+    padding: clamp(1.4rem, 4vw, 3.4rem);
+    margin-bottom: 1rem;
+    border: 1px solid #315469;
+    border-radius: 20px;
+    background: radial-gradient(ellipse at top right, #1e504d, transparent 65%), #102233;
+}
+.scan-hero .tag {
+    color: #9bf0d5;
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+}
+.scan-hero h1 {
+    color: #f4faff;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    line-height: 1.06;
+    margin: .6rem 0;
+    padding: 0;
+}
+.scan-hero p { color: #cfdee8; max-width: 38rem; margin: .7rem 0 0; }
+</style>
 
-st.markdown("#  Intelligent Phishing URL Detection & Analysis")
-st.markdown("### Inspect the link. Before the click.")
-st.write("Two simple models check the URL: one reads small character pieces, the other counts URL features. We average both scores 50/50. Now also trained on normal new websites like .ai / .io startups, so unseen does not automatically mean phishing.")
-st.success(f" Improved models trained | Training URLs: {metrics['train']} | Test URLs from unseen domains: {metrics['test']} | Safe links wrongly flagged in test: {metrics['fpr']:.1%}")
+<section class="scan-hero" aria-labelledby="scan-title">
+  <div class="tag">PHISHING URL DETECTOR · RESEARCH DEMO</div>
+  <h1 id="scan-title">Inspect the link.<br>Before the click.</h1>
+  <p>Paste a URL to check for signs of phishing without visiting the destination.</p>
+</section>
+""", unsafe_allow_html=True)
+
+st.caption(
+    f"Demo data · {metrics['train']:,} training URLs · {metrics['test']:,} test URLs. "
+    "Demo results do not establish real-world accuracy."
+)
 
 with st.sidebar:
-    st.header(" Risk Guide")
-    st.write(" High risk: score 0.70 or above"); st.write(" Suspicious: score 0.40 to 0.69"); st.write(" Lower risk: score below 0.40")
-    st.caption("This is a model estimate, not a 100% guarantee.")
+    st.header("How to read a result")
+    st.markdown(
+        "- **High risk:** score of 0.70 or above.\n"
+        "- **Suspicious:** score of 0.40 to below 0.70, or a possible lookalike.\n"
+        "- **Lower risk:** below 0.40 with no lookalike warning. Not a guarantee of safety."
+    )
 
-tab1, tab2, tab3, tab4 = st.tabs([" Single URL"," Batch Check"," Model Performance"," How It Works"])
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["Scan a URL", "Batch Check", "Model Performance", "How It Works"]
+)
 
 with tab1:
-    st.write("**Try an example:**")
-    e1, e2, e3 = st.columns(3)
-    e1.button(" Safe example", on_click=set_url, args=("https://www.google.com",), use_container_width=True)
-    e2.button(" Phishing example", on_click=set_url, args=("https://gooogle.xyz/login?verify=1",), use_container_width=True)
-    e3.button(" IP example", on_click=set_url, args=("http://192.168.1.10/bank/login",), use_container_width=True)
-    url = st.text_input("Enter URL to check:", key="url_input")
-    if st.button("🔍 Analyze URL", type="primary", use_container_width=True):
-        p = urlparse(url)
-        if p.scheme not in ("http","https") or not p.hostname: st.error("Please enter a valid URL like https://example.com")
+    with st.container(border=True):
+        st.subheader("Check a link")
+        st.caption("Try an example or paste your own. Avoid sharing private links or access tokens.")
+
+        examples = [
+            ("Regular link", "https://example.org/"),
+            ("Lookalike demo", "https://paypa1.invalid/"),
+            ("IP address demo", "http://192.0.2.25/login"),
+        ]
+        for col, (label, example) in zip(st.columns(3), examples):
+            col.button(label, on_click=set_url, args=(example,), use_container_width=True)
+
+        url = st.text_input("URL to inspect", key="url_input", max_chars=8192)
+        submitted = st.button("Analyze URL", type="primary", use_container_width=True)
+
+    if submitted:
+        candidate = url.strip()
+        st.session_state.pop("result", None)
+
+        try:
+            parsed = urlparse(candidate)
+            _ = parsed.port
+            valid = (
+                parsed.scheme in ("http", "https")
+                and bool(parsed.hostname)
+                and candidate.isprintable()
+                and not any(c.isspace() for c in candidate)
+            )
+        except ValueError:
+            valid = False
+
+        if not valid:
+            st.error("Enter a complete HTTP or HTTPS URL, like https://example.org/.")
         else:
-            pc, ps, combined = analyze(url)
-            st.session_state["result"] = {"url": url, "char": pc, "struct": ps, "combined": combined, "notes": indicators(url), "info": domain_info(url)}
-    if "result" in st.session_state:
-        r = st.session_state["result"]; st.write(f"Last checked: `{r['url']}`")
-        c1,c2,c3 = st.columns(3)
-        c1.metric("Character Model", f"{r['char']:.1%}"); c2.metric("Structural Model", f"{r['struct']:.1%}"); c3.metric("Combined Score", f"{r['combined']:.1%}")
-        st.progress(r["combined"])
-        if r["combined"] >= 0.70: st.error(" High phishing risk")
-        elif r["combined"] >= 0.40: st.warning("Suspicious — investigate carefully")
-        else: st.success(" Lower model-estimated risk")
-        st.subheader(" Reasons")
-        for n in r["notes"]: st.write(f"• {n}")
-        if not r["notes"]: st.write("No obvious warning signs found.")
-        col1, col2 = st.columns(2)
-        with col1: st.subheader("Domain Info"); st.json(r["info"])
-        with col2: st.subheader(" Scores"); st.json({"Character score": round(r["char"],4), "Structural score": round(r["struct"],4), "Combined = 0.5 x Character + 0.5 x Structural": round(r["combined"],4)})
-        report = f"Phishing URL Check Report\n\nURL: {r['url']}\nCharacter Model: {r['char']:.1%}\nStructural Model: {r['struct']:.1%}\nCombined Score: {r['combined']:.1%}\n\nReasons:\n" + ("\n".join("- "+n for n in r["notes"]) if r["notes"] else "- No obvious warning signs found.")
-        st.download_button(" Download Report", report, file_name="phishing_report.txt", mime="text/plain")
+            pc, ps, combined = analyze(candidate)
+            st.session_state["result"] = {
+                "url": candidate,
+                "char": pc,
+                "struct": ps,
+                "combined": combined,
+                "notes": indicators(candidate),
+                "info": domain_info(candidate),
+            }
+
+    r = st.session_state.get("result")
+    if r and r["url"] == url.strip():
+        verdict = risk_label(r["url"], r["combined"])
+
+        st.subheader("Assessment")
+        if verdict.startswith("High"):
+            st.error(verdict)
+        elif verdict.startswith("Suspicious"):
+            st.warning(verdict)
+        else:
+            st.info(verdict)
+
+        st.caption("Checked URL")
+        st.code(r["url"], language=None, wrap_lines=True)
+
+        a, b, c = st.columns(3)
+        a.metric("Character model", f"{r['char']:.3f}")
+        b.metric("Structural model", f"{r['struct']:.3f}")
+        c.metric("Combined score", f"{r['combined']:.3f}")
+        st.caption(
+            "The combined score is the average of the two models, not a probability. "
+            "A lookalike warning can appear even when the score is low."
+        )
+
+        with st.expander("Rule-based indicators", expanded=True):
+            for note in r["notes"]:
+                st.text(note)
+            if not r["notes"]:
+                st.write("No rule-based indicators triggered. This does not prove the link is safe.")
+
+        with st.expander("Domain details"):
+            st.json(r["info"])
+
+        report = (
+            f"Phishing URL Check\n\nURL: {r['url']}\nAssessment: {verdict}\n"
+            f"Character: {r['char']:.3f}\nStructural: {r['struct']:.3f}\n"
+            f"Combined: {r['combined']:.3f}\n\nRule-based indicators:\n"
+            + "\n".join(r["notes"] or ["None triggered."])
+        )
+        st.download_button("Download report", report, "phishing_report.txt", "text/plain")
 
 with tab2:
     text = st.text_area("Paste many URLs, one per line:", "https://google.com\nhttps://gooogle.xyz/login?verify=1", height=140)
