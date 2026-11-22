@@ -28,7 +28,7 @@ DATA_URL = (
     "https://archive.ics.uci.edu/static/public/967/"
     "phiusiil+phishing+url+dataset.zip"
 )
-SAMPLE_PER_LABEL = 3000
+SAMPLE_PER_LABEL = 5000
 DOMAIN_EXTRACTOR = tldextract.TLDExtract(suffix_list_urls=())
 KEYWORDS = ("login", "signin", "verify", "secure", "update", "password", "account")
 BRANDS = ("google", "microsoft", "apple", "amazon", "paypal", "netflix")
