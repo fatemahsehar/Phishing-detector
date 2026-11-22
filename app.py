@@ -98,7 +98,6 @@ def make_legit(rng):
     return f"https://{rng.choice(['www.','students.','courses.',''])}{domain}{rng.choice(['/courses/introduction-to-computer-science/module-1','/students/resources/library-and-study-guide','/about/departments-and-faculty-members','/news/research-and-innovation-update'])}"
 
 def make_general_legit(rng):
-    # NEW: normal new/startup websites like arena.ai - short word + modern ending
     word = "".join(rng.choices(SYLLABLES, k=rng.randint(2,4)))
     tld = rng.choice(["com","io","ai","co","app","dev","net","org","so","me"])
     sub = rng.choice(["", "", "", "www.", "app.", "docs.", "blog."])
@@ -130,15 +129,12 @@ def train_models():
     df["group"] = df["url"].apply(lambda u: registered_from_host(urlparse(u).hostname or ""))
     groups = list(df["group"].unique()); random.Random(123).shuffle(groups)
     test_groups = set(groups[:max(1, int(len(groups)*0.25))]); test = df["group"].isin(test_groups); train = ~test
-
     vec = TfidfVectorizer(analyzer="char", ngram_range=(3,5), max_features=7000)
     char_m = LogisticRegression(max_iter=1000, class_weight="balanced")
     char_m.fit(vec.fit_transform(df.loc[train,"url"]), df.loc[train,"label"])
-
     x_all = pd.DataFrame([features(u) for u in df["url"]]); cols = list(x_all.columns)
     struct_m = RandomForestClassifier(n_estimators=250, random_state=42, n_jobs=-1, class_weight="balanced")
     struct_m.fit(x_all[train], df.loc[train,"label"])
-
     y = df.loc[test,"label"].values
     pc = char_m.predict_proba(vec.transform(df.loc[test,"url"]))[:,1]
     ps = struct_m.predict_proba(x_all[test])[:,1]
@@ -179,8 +175,17 @@ def analyze(url):
     ps = float(struct_m.predict_proba(pd.DataFrame([features(url)])[cols])[0][1])
     return pc, ps, 0.5*pc + 0.5*ps
 
+def risk_label(url, score):
+    if score >= 0.70:
+        return "High phishing risk"
+    elif score >= 0.40:
+        return "Suspicious — investigate carefully"
+    else:
+        return "Lower model-estimated risk"
+
 def set_url(u): st.session_state["url_input"] = u
 if "url_input" not in st.session_state: st.session_state["url_input"] = "https://google.com"
+
 st.markdown("""
 <style>
 .scan-hero {
@@ -205,10 +210,10 @@ st.markdown("""
 }
 .scan-hero p { color: #cfdee8; max-width: 38rem; margin: .7rem 0 0; }
 </style>
-
 <section class="scan-hero" aria-labelledby="scan-title">
   <div class="tag">PHISHING URL DETECTOR · RESEARCH DEMO</div>
-  <h1 id="scan-title">Inspect the link.<br>Before the click.</h1>
+  <h1 id="scan-title">Inspect the link.
+Before the click.</h1>
   <p>Paste a URL to check for signs of phishing without visiting the destination.</p>
 </section>
 """, unsafe_allow_html=True)
@@ -234,7 +239,6 @@ with tab1:
     with st.container(border=True):
         st.subheader("Check a link")
         st.caption("Try an example or paste your own. Avoid sharing private links or access tokens.")
-
         examples = [
             ("Regular link", "https://example.org/"),
             ("Lookalike demo", "https://paypa1.invalid/"),
@@ -242,14 +246,12 @@ with tab1:
         ]
         for col, (label, example) in zip(st.columns(3), examples):
             col.button(label, on_click=set_url, args=(example,), use_container_width=True)
-
         url = st.text_input("URL to inspect", key="url_input", max_chars=8192)
         submitted = st.button("Analyze URL", type="primary", use_container_width=True)
 
     if submitted:
         candidate = url.strip()
         st.session_state.pop("result", None)
-
         try:
             parsed = urlparse(candidate)
             _ = parsed.port
@@ -261,7 +263,6 @@ with tab1:
             )
         except ValueError:
             valid = False
-
         if not valid:
             st.error("Enter a complete HTTP or HTTPS URL, like https://example.org/.")
         else:
@@ -278,7 +279,6 @@ with tab1:
     r = st.session_state.get("result")
     if r and r["url"] == url.strip():
         verdict = risk_label(r["url"], r["combined"])
-
         st.subheader("Assessment")
         if verdict.startswith("High"):
             st.error(verdict)
@@ -286,10 +286,8 @@ with tab1:
             st.warning(verdict)
         else:
             st.info(verdict)
-
         st.caption("Checked URL")
         st.code(r["url"], language=None, wrap_lines=True)
-
         a, b, c = st.columns(3)
         a.metric("Character model", f"{r['char']:.3f}")
         b.metric("Structural model", f"{r['struct']:.3f}")
@@ -298,16 +296,13 @@ with tab1:
             "The combined score is the average of the two models, not a probability. "
             "A lookalike warning can appear even when the score is low."
         )
-
         with st.expander("Rule-based indicators", expanded=True):
             for note in r["notes"]:
                 st.text(note)
             if not r["notes"]:
                 st.write("No rule-based indicators triggered. This does not prove the link is safe.")
-
         with st.expander("Domain details"):
             st.json(r["info"])
-
         report = (
             f"Phishing URL Check\n\nURL: {r['url']}\nAssessment: {verdict}\n"
             f"Character: {r['char']:.3f}\nStructural: {r['struct']:.3f}\n"
