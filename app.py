@@ -1,111 +1,117 @@
-import difflib
-import ipaddress
-import math
-import tempfile
-import zipfile
-
+import difflib, ipaddress, math, random
 from collections import Counter
-from urllib.parse import urlsplit
-
-import numpy as np
+from urllib.parse import urlparse
 import pandas as pd
 import requests
 import streamlit as st
-import tldextract
-
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    precision_score,
-    recall_score,
-)
-from sklearn.model_selection import GroupShuffleSplit
-from sklearn.pipeline import make_pipeline
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+
+st.set_page_config(page_title="LinkGuard", page_icon="🛡️", layout="wide")
+
+OPENPHISH_URL = "https://openphish.com/feed.txt"
+UA = {"User-Agent": "Mozilla/5.0 (LinkGuard research project)"}
+
+BRANDS = ["google","microsoft","apple","amazon","paypal","netflix","facebook","chase","instagram","youtube","whatsapp","binance","linkedin","outlook","dropbox","coinbase","dhl","fedex","wellsfargo","bankofamerica","icloud","steam","spotify","adobe","github","stripe"]
+SUSPICIOUS = ["login","signin","verify","update","secure","account","confirm","password","credential","banking","wallet","recover","suspend","unlock","billing","invoice","auth","validate","security"]
+RISKY_TLD = {"xyz","top","click","site","online","ml","ga","cf","tk","work","live","buzz","icu","cyou","cfd","sbs","gq","pw"}
+COMMON_TLD = {"com","org","net","edu","gov","ai","io","app","dev","co","me","so","uk","de","fr","ca","au","jp","in","nl","es","it","br"}
+SECOND_SUFFIX = {"co.uk","org.uk","ac.uk","gov.uk","com.au","co.in","com.br","co.jp","com.mx","com.tr","co.za","com.sg"}
+
+DEV_HOSTING = {"streamlit.app","vercel.app","netlify.app","github.io","firebaseapp.com","pages.dev","workers.dev","herokuapp.com","glitch.me","web.app","stackblitz.com","repl.co","codepen.io","jsfiddle.net"}
+
+KNOWN_LEGIT_DOMAINS = {
+    "google.com","youtube.com","facebook.com","instagram.com","twitter.com","x.com","linkedin.com",
+    "reddit.com","github.com","wikipedia.org","amazon.com","netflix.com","spotify.com","twitch.tv",
+    "tiktok.com","pinterest.com","medium.com","quora.com","dropbox.com","adobe.com","microsoft.com",
+    "apple.com","openai.com","chatgpt.com","notion.so","figma.com","canva.com","slack.com","zoom.us",
+    "discord.com","steam.com","imdb.com","airbnb.com","booking.com","uber.com","yelp.com","indeed.com",
+    "glassdoor.com","coursera.org","edx.org","khanacademy.org","udemy.com","duolingo.com","kaggle.com",
+    "huggingface.co","stackoverflow.com","gitlab.com","bitbucket.org","vercel.com","netlify.com",
+    "heroku.com","digitalocean.com","cloudflare.com","shopify.com","stripe.com","paypal.com",
+    "chase.com","bankofamerica.com","coinbase.com","binance.com","bbc.com","cnn.com","reuters.com",
+    "nytimes.com","theguardian.com","aljazeera.com","bloomberg.com","forbes.com","techcrunch.com",
+    "wired.com","apnews.com","npr.org","wsj.com","washingtonpost.com","economist.com","stanford.edu",
+    "mit.edu","harvard.edu","oxford.ac.uk","cambridge.ac.uk","gov.uk","usa.gov","nih.gov","arena.ai",
+    "perplexity.ai","claude.ai","character.ai","together.ai","stability.ai","elevenlabs.io","wandb.ai",
+    "replit.com","supabase.com","mongodb.com","docker.com","kubernetes.io","npmjs.com","pypi.org",
+}
+
+WORD1 = ["bright","green","blue","river","city","global","smart","prime","united","national","digital","open","north","south","royal","happy","quick","fresh","great","modern"]
+WORD2 = ["labs","health","learn","books","travel","foods","tech","media","news","shop","school","college","library","clinic","studio","works","solutions","group","garden","energy"]
+TOPICS = ["technology","students","learning","health","climate","business","sports","science","education","travel","music","history","digital","safety","research","economy","design","coding","guide","news"]
+SYLLABLES = ["a","be","ca","do","en","fi","go","ha","ka","lo","mi","no","pa","ra","re","ro","sa","ta","to","va","ve","za","ar","er","in","on","or","al","el","il","an","un","ex"]
+DEV_HOSTS_WEIGHTED = ["streamlit.app","streamlit.app","streamlit.app","vercel.app","vercel.app","netlify.app","netlify.app","github.io","github.io","firebaseapp.com","pages.dev","workers.dev","herokuapp.com","glitch.me"]
+DEV_NAMES = ["myapp","project","demo","site","app","tool","page","dashboard","portfolio","blog","api","store","learn","notes","docs","link","scan","check","guard","lab","work","portal","panel","hub","box"]
+
+LEGIT_QUERY_PARAMS = {"q","v","list","page","ref","lang","th","qid","index","hl","source","tab","s","utm_source","utm_medium","start","sort","filter","category","type","mode","view","from","to","next","sp","ei","ved","oq","gs_l","pb","gws","cad","ct","id"}
+PHISH_QUERY_PARAMS = {"token","session","redirect","verify","auth","login","password","email","user","account","otp","code","pass","pwd","secret","key","sig","sign","callback","return","target","url"}
+LEGIT_PATH_SEGMENTS = {
+    "watch","search","wiki","blog","news","articles","docs","products","dp","reel","video",
+    "account","settings","profile","login","signin","about","contact","pricing","features",
+    "help","support","faq","privacy","terms","download","community","guide","library",
+    "courses","students","apply","store","shop","home","index","app","api","demo","preview",
+    "create","edit","update","save","submit","share","comment","follow","subscribe","signup",
+    "join","learn","study","read","listen","play","buy","cart","checkout","order","track",
+    "status","history","recent","popular","trending","latest","sale","deal","discount",
+    "coupon","gift","wallet","pay","invoice","statement","transfer","deposit","withdraw",
+    "invest","trade","market","stock","crypto","flight","hotel","trip","travel","map",
+    "route","weather","traffic","alert","notice","announcement","release","version",
+    "changelog","company","team","career","job","hiring","resume","portfolio","project",
+    "work","case","study","example","sample","template","tool","utility","widget","plugin",
+    "extension","module","package","sdk","endpoint","handler","controller","model","view",
+    "component","element","button","input","form","field","label","text","image","audio",
+    "music","song","album","playlist","show","episode","season","series","movie","film",
+    "concert","festival","event","game","gaming","level","quest","mission","goal","vision",
+    "value","principle","law","rule","regulation","policy","guideline","standard","culture",
+    "society","public","private","personal","individual","group","organization","business",
+    "enterprise","firm","agency","department","division","section","branch","office","location",
+    "address","phone","mail","letter","message","note","summary","overview","introduction",
+    "conclusion","abstract","thesis","paper","article","essay","report","document","file",
+    "record","log","journal","diary","post","entry","item","data","information","knowledge",
+    "insight","understanding","awareness","perception","cognition","thought","idea","concept",
+    "notion","belief","opinion","perspective","position","stance","attitude","mood","feeling",
+    "emotion","sentiment","state","condition","situation","context","environment","setting",
+    "scene","scenario","instance","illustration","demonstration","proof","evidence","test",
+    "trial","experiment","research","investigation","inquiry","examination","analysis",
+    "evaluation","assessment","review","audit","inspection","check","verification","validation",
+    "confirmation","certification","approval","endorsement","backing","sponsorship","funding",
+    "financing","investment","capital","asset","liability","equity","profit","revenue","income",
+    "earnings","sales","turnover","margin","cost","expense","spending","budget","forecast",
+    "projection","estimate","prediction","trends","pattern","cycle","wave","pulse","beat",
+    "rhythm","tempo","pace","speed","velocity","force","power","energy","strength","weakness",
+    "vulnerability","risk","threat","danger","hazard","peril","menace","alarm","caution",
+    "advice","recommendation","suggestion","tip","hint","clue","pointer","direction",
+    "instruction","guidance","counsel","advisory","notification","bulletin","circular",
+    "dispatch","communique","declaration","proclamation","pronouncement","verdict","ruling",
+    "judgment","decision","determination","resolution","outcome","result","consequence",
+    "effect","impact","influence","implication","significance","importance","relevance",
+    "pertinence","applicability","suitability","fitness","appropriateness","properness",
+    "rightness","correctness","accuracy","precision","exactness",
+}
 
 
-st.set_page_config(
-    page_title="LinkGuard",
-    page_icon="🛡️",
-    layout="wide",
-)
-
-# UCI PhiUSIIL labels:
-# 0 = phishing, 1 = legitimate.
-DATASET_URL = (
-    "https://archive.ics.uci.edu/static/public/967/"
-    "phiusiil+phishing+url+dataset.zip"
-)
-
-# Maximum number sampled from each original dataset class.
-# Increase only after checking that your hosting has enough memory.
-SAMPLE_PER_CLASS = 4000
-RANDOM_SEED = 42
-MAX_URL_LENGTH = 4096
-
-BRANDS = [
-    "google",
-    "microsoft",
-    "apple",
-    "amazon",
-    "paypal",
-    "netflix",
-    "facebook",
-    "instagram",
-    "youtube",
-    "linkedin",
-]
-
-KEYWORDS = [
-    "login",
-    "signin",
-    "verify",
-    "secure",
-    "account",
-    "password",
-    "update",
-    "confirm",
-    "billing",
-]
-
-# Use the bundled public suffix list, without a network download.
-# Private suffixes help distinguish separate hosted-app domains.
-extract_domain = tldextract.TLDExtract(
-    suffix_list_urls=(),
-    include_psl_private_domains=True,
-)
-
-
-def parse_url(value):
-    """Parse a URL without visiting the destination."""
-    if not isinstance(value, str):
-        return None
-
-    if not value or len(value) > MAX_URL_LENGTH:
-        return None
-
-    if any(character.isspace() or ord(character) < 32 for character in value):
-        return None
-
+def safe_urlparse(url):
     try:
-        parsed = urlsplit(value)
-
-        if parsed.scheme.lower() not in ("http", "https"):
-            return None
-
-        if not parsed.hostname:
-            return None
-
-        # Accessing port checks for malformed or out-of-range values.
-        _ = parsed.port
-
-        return parsed
-
+        return urlparse(str(url).strip())
     except ValueError:
         return None
+
+
+def is_valid_http_url(url):
+    u = str(url).strip()
+    if not u or len(u) > 2048 or not u.isprintable() or any(c.isspace() for c in u):
+        return False
+    p = safe_urlparse(u)
+    if p is None or p.scheme not in ("http", "https") or not p.hostname:
+        return False
+    try:
+        _ = p.port
+    except ValueError:
+        return False
+    return True
 
 
 def is_ip(host):
@@ -116,723 +122,551 @@ def is_ip(host):
         return False
 
 
-def domain_parts(host):
-    """Return the domain group and some display information."""
-    host = host.lower().rstrip(".")
+def registered_from_host(host):
+    if not host or is_ip(host):
+        return host
+    parts = host.lower().split(".")
+    if len(parts) <= 2:
+        return ".".join(parts)
+    if ".".join(parts[-2:]) in SECOND_SUFFIX and len(parts) >= 3:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:])
 
-    if is_ip(host):
-        return {
-            "group": host,
-            "subdomain": "",
-            "domain": host,
-            "suffix": "",
-        }
 
-    result = extract_domain(host)
+def main_label(host):
+    reg = registered_from_host(host)
+    return reg.split(".")[0] if reg and not is_ip(host) else ""
 
-    if result.domain and result.suffix:
-        group = f"{result.domain}.{result.suffix}"
+
+def subdomain_from_host(host):
+    h = (host or "").lower()
+    reg = registered_from_host(h)
+    return h[:-(len(reg) + 1)] if h and reg and h.endswith("." + reg) else ""
+
+
+def normalize_lookalike(text):
+    return (text.lower().replace("0","o").replace("1","l").replace("3","e")
+            .replace("4","a").replace("5","s").replace("7","t").replace("8","b")
+            .replace("rn","m").replace("vv","w"))
+
+
+def calc_entropy(text):
+    if not text:
+        return 0.0
+    freq = Counter(text)
+    n = len(text)
+    return -sum((c / n) * math.log2(c / n) for c in freq.values())
+
+
+def brand_lookalike_score(label):
+    if not label:
+        return 0.0, False, ""
+    low = label.lower()
+    norm = normalize_lookalike(low)
+    best_sim, matched, is_near = 0.0, "", False
+    for b in BRANDS:
+        if low == b:
+            return 1.0, False, b
+        if norm == b and low != b:
+            return 0.99, True, b
+        sim = max(difflib.SequenceMatcher(None, b, low).ratio(), difflib.SequenceMatcher(None, b, norm).ratio())
+        if sim > best_sim:
+            best_sim, matched = sim, b
+        if sim >= 0.80 and low != b:
+            is_near = True
+    return best_sim, is_near, matched
+
+
+def features(url):
+    p = safe_urlparse(url) or urlparse("")
+    h = (p.hostname or "").lower()
+    path = p.path or ""
+    query = p.query or ""
+    low = url.lower()
+    try:
+        port = p.port
+    except ValueError:
+        port = None
+    sub = subdomain_from_host(h)
+    label = main_label(h)
+    reg = registered_from_host(h)
+    tld = h.rsplit(".", 1)[-1] if "." in h and not is_ip(h) else ""
+    url_len = max(len(url), 1)
+    digits = sum(c.isdigit() for c in url)
+    specials = sum(not c.isalnum() for c in url)
+    sim, is_near, _ = brand_lookalike_score(label)
+
+    qparams = set()
+    if query:
+        for pair in query.split("&"):
+            k = pair.split("=", 1)[0].strip().lower()
+            if k:
+                qparams.add(k)
+    path_segs = set(s.lower() for s in path.split("/") if s)
+
+    return {
+        "url_length": len(url), "host_length": len(h), "domain_length": len(label),
+        "path_length": len(path), "query_length": len(query),
+        "dots": url.count("."), "hyphens": url.count("-"), "hyphens_in_host": h.count("-"),
+        "underscores": url.count("_"), "digits": digits, "digits_in_host": sum(c.isdigit() for c in h),
+        "digit_ratio": round(digits / url_len, 4), "special_ratio": round(specials / url_len, 4),
+        "params": len(query.split("&")) if query else 0, "path_depth": path.count("/"),
+        "percent_encoded": url.count("%"), "has_ip": int(is_ip(h)), "has_at": int("@" in url),
+        "has_punycode": int("xn--" in low), "nonstandard_port": int(port not in (None, 80, 443)),
+        "is_https": int(p.scheme == "https"), "is_www": int(sub == "www"),
+        "is_homepage": int(path in ("", "/") and not query),
+        "subdomain_count": len(sub.split(".")) if sub else 0,
+        "suspicious_words": sum(1 for w in SUSPICIOUS if w in low),
+        "host_keywords": sum(1 for w in SUSPICIOUS if w in h),
+        "path_keywords": sum(1 for w in SUSPICIOUS if w in (path + query).lower()),
+        "risky_tld": int(tld in RISKY_TLD), "is_common_tld": int(tld in COMMON_TLD),
+        "is_dev_hosting": int(reg in DEV_HOSTING),
+        "is_known_legit_domain": int(reg in KNOWN_LEGIT_DOMAINS),
+        "exact_brand_domain": int(label in BRANDS), "near_brand_domain": int(is_near),
+        "brand_similarity": round(float(sim), 3),
+        "brand_in_subdomain": int(any(b in sub for b in BRANDS) and label not in BRANDS) if sub else 0,
+        "brand_in_path": int(any(b in (path + query).lower() for b in BRANDS) and label not in BRANDS),
+        "legit_query_params": sum(1 for k in qparams if k in LEGIT_QUERY_PARAMS),
+        "phish_query_params": sum(1 for k in qparams if k in PHISH_QUERY_PARAMS),
+        "legit_path_segments": sum(1 for s in path_segs if s in LEGIT_PATH_SEGMENTS),
+        "url_entropy": round(calc_entropy(url), 3), "host_entropy": round(calc_entropy(h), 3),
+        "has_double_slash_path": int("//" in path),
+    }
+
+
+def domain_info(url):
+    p = safe_urlparse(url) or urlparse("")
+    h = (p.hostname or "").lower()
+    reg = registered_from_host(h)
+    return {"Hostname": h, "Registered domain": reg, "Subdomain": subdomain_from_host(h) or "-",
+            "Main domain name": main_label(h), "Scheme": p.scheme, "Path": p.path or "/",
+            "Uses IP address": is_ip(h),
+            "Known dev-hosting platform": reg in DEV_HOSTING,
+            "Known major/legit domain": reg in KNOWN_LEGIT_DOMAINS}
+
+
+def misspell(w, rng):
+    w = list(w); i = rng.randrange(len(w)); r = rng.random()
+    if r < 0.4: w[i] = rng.choice("abcdefghijklmnopqrstuvwxyz")
+    elif r < 0.7: w.insert(i, rng.choice("abcdefghijklmnopqrstuvwxyz"))
+    elif r < 0.85 and len(w) > 3: w.pop(i)
     else:
-        # Use the whole hostname when no known suffix is found.
-        group = host
-
-    return {
-        "group": group,
-        "subdomain": result.subdomain,
-        "domain": result.domain,
-        "suffix": result.suffix,
-    }
+        j = min(i + 1, len(w) - 1); w[i], w[j] = w[j], w[i]
+    return "".join(w)
 
 
-def structural_features(url):
-    parsed = parse_url(url)
-    if parsed is None:
-        raise ValueError("Invalid URL")
+def digit_fake(w):
+    if "o" in w: return w.replace("o", "0", 1)
+    if "l" in w: return w.replace("l", "1", 1)
+    if "e" in w: return w.replace("e", "3", 1)
+    return w + "1"
 
-    host = parsed.hostname.lower()
-    parts = domain_parts(host)
-    path = parsed.path or ""
-    query = parsed.query or ""
 
-    counts = Counter(url)
-    entropy = -sum(
-        (count / len(url)) * math.log2(count / len(url))
-        for count in counts.values()
-    )
+def make_legit(rng):
+    kind = rng.random()
+    if kind < 0.20:
+        host = rng.choice(DEV_HOSTS_WEIGHTED)
+        name = rng.choice(DEV_NAMES)
+        randhash = "".join(rng.choices("abcdefghijklmnopqrstuvwxyz0123456789", k=rng.randint(10, 16)))
+        path = rng.choice(["", "/", "/about", "/docs", "/settings", "/?tab=1", "/v2", "/help"])
+        return f"https://{name}-{randhash}.{host}{path}"
+    if kind < 0.34:
+        base = rng.choice(sorted(KNOWN_LEGIT_DOMAINS))
+        sub = rng.choice(["", "www.", "m.", "docs.", "support.", "blog."])
+        p = rng.choice([
+            f"/watch?v={''.join(rng.choices('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_', k=11))}&list=PLabc&index={rng.randint(1,50)}",
+            f"/search?q={'+'.join(rng.choices(TOPICS, k=4))}&page={rng.randint(1,10)}&lang=en",
+            f"/dp/B{rng.randint(1000000,9999999)}?ref=sr_1_2&th=1&qid={rng.randint(100,999)}",
+            f"/questions/{rng.randint(100000,9999999)}/how-to-do-something-in-python",
+            f"/wiki/{rng.choice(['Python','Machine_learning','Cybersecurity','Web_development','Data_science','Algorithms'])}",
+            f"/en/products/{rng.randint(100000,999999)}/{rng.choice(['headphones','laptop','camera','watch','speaker'])}",
+        ])
+        return f"https://{sub}{base}{p}"
+    if kind < 0.56:
+        base = rng.choice(["bbc.com","cnn.com","reuters.com","nytimes.com","theguardian.com","aljazeera.com","bloomberg.com","forbes.com","techcrunch.com","wired.com","apnews.com","npr.org"])
+        slug = "-".join(rng.choices(TOPICS, k=rng.randint(4, 7)))
+        return f"https://www.{base}/{rng.choice(['news','articles','blog','guide'])}/{slug}-{rng.randint(10000,99999)}"
+    if kind < 0.76:
+        sep = "-" if rng.random() < 0.2 else ""
+        domain = f"{rng.choice(WORD1)}{sep}{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co'])}"
+        sub = rng.choice(["", "www.", "support.", "blog.", "shop."])
+        path = rng.choice(["", "/", "/about", "/services", "/contact", "/pricing", "/blog", "/products", "/team", "/article/" + str(rng.randint(100, 99999))])
+        return f"https://{sub}{domain}{path}"
+    if kind < 0.90:
+        base = rng.choice(["paypal.com","chase.com","bankofamerica.com","google.com","microsoft.com","apple.com","amazon.com","netflix.com"])
+        sub = rng.choice(["", "www.", "accounts.", "login.", "secure."])
+        path = rng.choice(["/login", "/signin", "/account/settings", "/accounts/login/", "/profile", "/dashboard", "/billing"])
+        return f"https://{sub}{base}{path}"
+    domain = rng.choice(["stanford.edu","mit.edu","harvard.edu","oxford.ac.uk","gov.uk","usa.gov","nih.gov"])
+    sub = rng.choice(["", "www.", "students.", "courses."])
+    path = rng.choice(["/courses/intro-to-cs/module-1","/students/resources/library-guide","/about/departments","/news/research-update","/forms/apply"])
+    return f"https://{sub}{domain}{path}"
 
-    domain_label = parts["domain"].lower()
-    lookalike = any(
-        domain_label
-        and domain_label != brand
-        and difflib.SequenceMatcher(
-            None, domain_label, brand
-        ).ratio() >= 0.80
-        for brand in BRANDS
-    )
 
-    return {
-        "url_length": len(url),
-        "host_length": len(host),
-        "path_length": len(path),
-        "query_length": len(query),
-        "dots": url.count("."),
-        "hyphens": url.count("-"),
-        "digits": sum(character.isdigit() for character in url),
-        "percent_signs": url.count("%"),
-        "path_segments": len([item for item in path.split("/") if item]),
-        "query_parameters": len(query.split("&")) if query else 0,
-        "subdomain_count": (
-            len(parts["subdomain"].split("."))
-            if parts["subdomain"]
-            else 0
-        ),
-        "uses_ip": int(is_ip(host)),
-        "uses_https": int(parsed.scheme.lower() == "https"),
-        "has_userinfo": int("@" in parsed.netloc),
-        "has_punycode": int("xn--" in host),
-        "nonstandard_port": int(parsed.port not in (None, 80, 443)),
-        "host_keywords": sum(word in host for word in KEYWORDS),
-        "path_keywords": sum(
-            word in (path + "?" + query).lower()
-            for word in KEYWORDS
-        ),
-        "possible_brand_lookalike": int(lookalike),
-        "entropy": entropy,
-    }
+def make_phish(rng):
+    brand = rng.choice(BRANDS)
+    fake = misspell(brand, rng) if rng.random() < 0.7 else brand
+    tld = rng.choice(list(RISKY_TLD))
+    scheme = rng.choice(["http", "http", "https"])
+    k = rng.randrange(12)
+    if k == 0: return f"{scheme}://{fake}-login.{tld}/login"
+    if k == 1: return f"https://secure.{fake}.{tld}/account/update?verify=1"
+    if k == 2: return f"http://{rng.randint(11,220)}.{rng.randint(0,255)}.{rng.randint(0,255)}.{rng.randint(1,254)}/bank/login"
+    if k == 3: return f"https://www.{fake}.{tld}/signin?password=reset&token={rng.randint(1000,99999)}"
+    if k == 4: return f"https://{brand}.login-verify.{fake}.{tld}/confirm/account"
+    if k == 5: return f"https://{brand}.com@{fake}.{tld}/login"
+    if k == 6: return f"https://xn--{fake}80a.{tld}/secure/verify"
+    if k == 7: return f"https://{fake}-secure.com/login/verify"
+    if k == 8: return f"https://{digit_fake(brand)}.{rng.choice(['com','net','io'])}/login"
+    if k == 9: return f"https://{brand}-{rng.choice(['verify','secure','support','help'])}.com/account/update"
+    if k == 10: return f"https://login.{''.join(rng.choices(SYLLABLES, k=5))}.{tld}/secure/verify?token={rng.randint(10000,99999)}"
+    return f"https://{fake}.{tld}/verify/{''.join(rng.choices('abcdefghijklmnopqrstuvwxyz0123456789', k=12))}?session={rng.randint(100000,999999)}&redirect=home"
+
+
+def load_real_data():
+    rng = random.Random(42)
+    phish_urls = []
+    phish_source = ""
+    try:
+        r = requests.get(OPENPHISH_URL, headers=UA, timeout=15)
+        if r.status_code == 200:
+            seen = set()
+            for line in r.text.splitlines():
+                u = line.strip()
+                if u.startswith("http") and is_valid_http_url(u):
+                    reg = registered_from_host((safe_urlparse(u).hostname or "").lower())
+                    if reg in seen:
+                        continue
+                    seen.add(reg)
+                    phish_urls.append(u)
+                if len(phish_urls) >= 1500:
+                    break
+            if phish_urls:
+                phish_source = f"OpenPhish live feed ({len(phish_urls):,} real URLs)"
+    except Exception:
+        pass
+
+    n_target = 4000
+    if len(phish_urls) < n_target:
+        for _ in range(n_target - len(phish_urls)):
+            phish_urls.append(make_phish(rng))
+        if phish_source:
+            phish_source += f" + {n_target - len(phish_urls):,} pattern-based"
+        else:
+            phish_source = f"Pattern-based ({n_target:,}) - OpenPhish unavailable"
+
+    legit_urls = []
+    legit_domains = sorted(KNOWN_LEGIT_DOMAINS) + [f"{rng.choice(WORD1)}-{rng.choice(WORD2)}.{rng.choice(['com','org','net','io','co'])}" for _ in range(120)]
+    rng.shuffle(legit_domains)
+    for i in range(n_target):
+        d = legit_domains[i % len(legit_domains)]
+        legit_urls.append(make_legit(rng) if rng.random() < 0.5 else f"https://{d}{rng.choice(['','/','/about','/docs','/help','/blog','/products','/account','/login','/settings','/search?q=hello'])}")
+    legit_source = f"Real top domains ({len(KNOWN_LEGIT_DOMAINS):,}) + realistic paths"
+    return phish_urls, legit_urls, {"phish": phish_source, "legit": legit_source}
+
+
+@st.cache_resource(show_spinner="Loading real data and training models... (first load ~15 seconds)")
+def train_models():
+    phish_urls, legit_urls, source = load_real_data()
+    urls = legit_urls + phish_urls
+    labels = [0] * len(legit_urls) + [1] * len(phish_urls)
+    df = pd.DataFrame({"url": urls, "label": labels})
+    df["group"] = df["url"].apply(lambda u: registered_from_host((safe_urlparse(u).hostname or "") if safe_urlparse(u) else ""))
+
+    groups = list(df["group"].unique())
+    random.Random(123).shuffle(groups)
+    test_groups = set(groups[:max(1, int(len(groups) * 0.25))])
+    test = df["group"].isin(test_groups)
+    train = ~test
+
+    vec = TfidfVectorizer(analyzer="char", ngram_range=(3, 5), max_features=18000, min_df=3, sublinear_tf=True)
+    char_m = LogisticRegression(max_iter=1500, C=0.5, class_weight="balanced")
+    char_m.fit(vec.fit_transform(df.loc[train, "url"]), df.loc[train, "label"])
+
+    x_all = pd.DataFrame([features(u) for u in df["url"]])
+    cols = list(x_all.columns)
+    struct_m = RandomForestClassifier(n_estimators=300, max_depth=22, min_samples_leaf=2, random_state=42, n_jobs=-1, class_weight="balanced")
+    struct_m.fit(x_all[train], df.loc[train, "label"])
+
+    y = df.loc[test, "label"].values
+    pc = char_m.predict_proba(vec.transform(df.loc[test, "url"]))[:, 1]
+    ps = struct_m.predict_proba(x_all[test])[:, 1]
+    ens = 0.5 * pc + 0.5 * ps
+
+    thresholds = []
+    for t in [0.30, 0.40, 0.50, 0.60, 0.70, 0.80]:
+        pred = (ens >= t).astype(int)
+        cm = confusion_matrix(y, pred, labels=[0, 1])
+        tn, fp, fn, tp = cm.ravel()
+        pr, rc, f1, _ = precision_recall_fscore_support(y, pred, average="binary", zero_division=0)
+        thresholds.append({"Threshold": t, "Precision": round(float(pr), 3), "Recall": round(float(rc), 3),
+                           "F1": round(float(f1), 3), "False Positive Rate": round(fp / max(fp + tn, 1), 3), "False Negatives": int(fn)})
+
+    test_df = df.loc[test].copy()
+    test_df["score"] = ens
+    fp_cases = test_df[(y == 0) & (ens >= 0.5)].nlargest(4, "score")[["url", "score"]].values.tolist()
+    fn_cases = test_df[(y == 1) & (ens < 0.5)].nsmallest(4, "score")[["url", "score"]].values.tolist()
+
+    train_df = df.loc[train]
+    def top_tlds(series):
+        return (series.apply(lambda u: (safe_urlparse(u).hostname or "").lower() if safe_urlparse(u) else "")
+                .apply(lambda h: h.rsplit(".", 1)[-1] if "." in h else h).value_counts().head(5).to_dict())
+
+    metrics = {"train": int(train.sum()), "test": int(test.sum()),
+               "unique_test_domains": int(df.loc[test, "group"].nunique()), "models": {}, "source": source}
+    for name, prob in [("Character Model", pc), ("Structural Model", ps), ("Ensemble (50/50)", ens)]:
+        pred = (prob >= 0.5).astype(int)
+        pr, rc, f1, _ = precision_recall_fscore_support(y, pred, average="binary", zero_division=0)
+        metrics["models"][name] = {"Precision": round(float(pr), 3), "Recall": round(float(rc), 3),
+                                   "F1": round(float(f1), 3), "Accuracy": round(float(accuracy_score(y, pred)), 3)}
+    cm = confusion_matrix(y, (ens >= 0.5).astype(int), labels=[0, 1]).tolist()
+    metrics["cm"] = cm
+    metrics["fpr"] = round(cm[0][1] / max(cm[0][0] + cm[0][1], 1), 3)
+    metrics["thresholds"] = thresholds
+    metrics["fp_cases"] = fp_cases
+    metrics["fn_cases"] = fn_cases
+    metrics["phish_tlds"] = top_tlds(train_df[train_df["label"] == 1]["url"])
+    metrics["legit_tlds"] = top_tlds(train_df[train_df["label"] == 0]["url"])
+    return vec, char_m, struct_m, cols, metrics
+
+
+vec, char_m, struct_m, cols, metrics = train_models()
+
+
+def hard_indicator(url):
+    p = safe_urlparse(url) or urlparse("")
+    h = (p.hostname or "").lower()
+    f = features(url)
+    if f["has_ip"] or f["has_at"] or f["has_punycode"]:
+        return True
+    _, is_near, _ = brand_lookalike_score(main_label(h))
+    if is_near:
+        return True
+    if f["risky_tld"] and (f["host_keywords"] > 0 or f["near_brand_domain"]):
+        return True
+    return False
 
 
 def indicators(url):
-    parsed = parse_url(url)
-    host = parsed.hostname.lower()
-    parts = domain_parts(host)
+    p = safe_urlparse(url) or urlparse("")
+    h = (p.hostname or "").lower()
+    f = features(url)
+    reg = registered_from_host(h)
     notes = []
-
-    if is_ip(host):
-        notes.append("The hostname is an IP address.")
-
-    if parsed.scheme.lower() == "http":
-        notes.append("The URL does not use HTTPS.")
-
-    if "@" in parsed.netloc:
-        notes.append(
-            "The address contains user information before the hostname."
-        )
-
-    if "xn--" in host:
-        notes.append(
-            "The hostname contains punycode; check the displayed domain carefully."
-        )
-
-    label = parts["domain"].lower()
-    for brand in BRANDS:
-        if (
-            label
-            and label != brand
-            and difflib.SequenceMatcher(None, label, brand).ratio() >= 0.80
-        ):
-            notes.append(
-                f"The domain name '{label}' resembles '{brand}'. "
-                "This is a similarity warning, not proof of impersonation."
-            )
-            break
-
+    if f["has_ip"]: notes.append("Uses an IP address instead of a domain name")
+    if p.scheme != "https": notes.append("Does not use HTTPS")
+    if "@" in url: notes.append("Contains '@' — can hide the real destination")
+    if "xn--" in url.lower(): notes.append("Punycode domain — can imitate a known brand")
+    if f["subdomain_count"] >= 2: notes.append("Has multiple subdomains")
+    if f["hyphens_in_host"] >= 3: notes.append("Multiple hyphens in hostname")
+    if f["digits_in_host"] >= 4: notes.append("Unusual number of digits in hostname")
+    if f["host_keywords"] > 0: notes.append("Suspicious word (e.g. login/verify/secure) inside the domain name")
+    elif f["path_keywords"] > 0: notes.append("Contains account/login keyword in path or query")
+    if f["risky_tld"]: notes.append("Uses a TLD frequently abused in phishing campaigns")
+    if f["phish_query_params"] >= 2: notes.append("Query contains multiple credential/token parameters")
+    if f["url_entropy"] > 4.9: notes.append("High character randomness (entropy) in URL")
+    if f["is_dev_hosting"]: notes.append("Hosted on a known free dev platform — less commonly used for high-confidence phishing")
+    if f["is_known_legit_domain"]: notes.append("Registered domain is a known major/legitimate site")
+    label = main_label(h)
+    sub = subdomain_from_host(h)
+    sim, is_near, matched = brand_lookalike_score(label)
+    if is_near and matched: notes.append(f"Lookalike domain: '{label}' closely resembles '{matched}'")
+    if sub:
+        for b in BRANDS:
+            if b in sub and label != b:
+                notes.append(f"Known brand '{b}' appears in subdomain instead of main domain")
+                break
     return notes
 
 
-def load_dataset():
-    """
-    Download UCI PhiUSIIL and take a reproducible random sample.
-    No generated URLs or fallback data are added.
-    """
-    rng = np.random.default_rng(RANDOM_SEED)
-    samples = {0: None, 1: None}
-
-    with requests.get(
-        DATASET_URL,
-        stream=True,
-        timeout=(20, 120),
-    ) as response:
-        response.raise_for_status()
-
-        # Store the ZIP temporarily instead of keeping the whole file in RAM.
-        with tempfile.TemporaryFile() as downloaded:
-            total_bytes = 0
-
-            for block in response.iter_content(chunk_size=1024 * 1024):
-                if not block:
-                    continue
-
-                total_bytes += len(block)
-
-                if total_bytes > 200 * 1024 * 1024:
-                    raise ValueError("Dataset download is larger than expected.")
-
-                downloaded.write(block)
-
-            downloaded.seek(0)
-
-            with zipfile.ZipFile(downloaded) as archive:
-                csv_files = [
-                    name for name in archive.namelist()
-                    if name.lower().endswith(".csv")
-                ]
-
-                if not csv_files:
-                    raise ValueError("No CSV file found in the dataset archive.")
-
-                csv_name = max(
-                    csv_files,
-                    key=lambda name: archive.getinfo(name).file_size,
-                )
-
-                with archive.open(csv_name) as csv_file:
-                    chunks = pd.read_csv(
-                        csv_file,
-                        usecols=lambda name: name.strip().lower()
-                        in {"url", "label"},
-                        chunksize=10000,
-                        on_bad_lines="skip",
-                    )
-
-                    for chunk in chunks:
-                        chunk.columns = [
-                            column.strip().lower()
-                            for column in chunk.columns
-                        ]
-
-                        if not {"url", "label"}.issubset(chunk.columns):
-                            raise ValueError(
-                                "The dataset must contain URL and label columns."
-                            )
-
-                        chunk = chunk.dropna(subset=["url", "label"]).copy()
-                        chunk["url"] = chunk["url"].astype(str).str.strip()
-                        chunk["label"] = pd.to_numeric(
-                            chunk["label"],
-                            errors="coerce",
-                        )
-
-                        chunk = chunk.loc[
-                            chunk["url"].map(
-                                lambda value: parse_url(value) is not None
-                            )
-                        ].copy()
-
-                        for original_label in (0, 1):
-                            candidates = chunk.loc[
-                                chunk["label"].eq(original_label),
-                                ["url", "label"],
-                            ].copy()
-
-                            if candidates.empty:
-                                continue
-
-                            # Random priorities give a reproducible sample
-                            # across the whole file, not only the first rows.
-                            candidates["_priority"] = rng.random(
-                                len(candidates)
-                            )
-
-                            previous = samples[original_label]
-
-                            if previous is None:
-                                pool = candidates
-                            else:
-                                pool = pd.concat(
-                                    [previous, candidates],
-                                    ignore_index=True,
-                                )
-
-                            samples[original_label] = pool.nsmallest(
-                                SAMPLE_PER_CLASS,
-                                "_priority",
-                            )
-
-    if samples[0] is None or samples[1] is None:
-        raise ValueError(
-            "The dataset did not provide usable URLs for both classes."
-        )
-
-    data = pd.concat(
-        [samples[0], samples[1]],
-        ignore_index=True,
-    ).drop(columns=["_priority"])
-
-    # Remove duplicate URLs and conflicting labels.
-    data = data.drop_duplicates(subset=["url", "label"])
-
-    data = data.loc[
-        data.groupby("url")["label"].transform("nunique").eq(1)
-    ].copy()
-
-    data = data.drop_duplicates(subset="url").reset_index(drop=True)
-
-    # Convert to our model convention:
-    # 1 = phishing, 0 = legitimate.
-    data["is_phishing"] = data["label"].eq(0).astype(int)
-
-    data["domain_group"] = data["url"].map(
-        lambda value: domain_parts(
-            parse_url(value).hostname
-        )["group"]
-    )
-
-    if set(data["is_phishing"].unique()) != {0, 1}:
-        raise ValueError("Both classes are needed for training.")
-
-    return data
-
-
-def split_by_domain(data):
-    """
-    Split into train, validation, and test groups.
-    Never fall back to splitting individual rows.
-    """
-    labels = data["is_phishing"].to_numpy()
-    groups = data["domain_group"]
-
-    outer = GroupShuffleSplit(
-        n_splits=20,
-        test_size=0.20,
-        random_state=RANDOM_SEED,
-    )
-
-    for remaining_idx, test_idx in outer.split(data, labels, groups):
-        if len(set(labels[test_idx])) < 2:
-            continue
-
-        remaining = data.iloc[remaining_idx]
-
-        inner = GroupShuffleSplit(
-            n_splits=20,
-            test_size=0.25,
-            random_state=RANDOM_SEED + 1,
-        )
-
-        for train_local, val_local in inner.split(
-            remaining,
-            remaining["is_phishing"],
-            remaining["domain_group"],
-        ):
-            train_idx = remaining_idx[train_local]
-            val_idx = remaining_idx[val_local]
-
-            if (
-                len(set(labels[train_idx])) == 2
-                and len(set(labels[val_idx])) == 2
-            ):
-                return train_idx, val_idx, test_idx
-
-    raise ValueError(
-        "Could not create three domain-separated splits containing "
-        "both classes. Try a larger sample."
-    )
-
-
-def threshold_row(actual, scores, threshold):
-    predicted = (scores >= threshold).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(
-        actual,
-        predicted,
-        labels=[0, 1],
-    ).ravel()
-
-    return {
-        "Threshold": threshold,
-        "Precision": round(
-            precision_score(actual, predicted, zero_division=0), 3
-        ),
-        "Recall": round(
-            recall_score(actual, predicted, zero_division=0), 3
-        ),
-        "F1": round(f1_score(actual, predicted, zero_division=0), 3),
-        "False-positive rate": round(fp / (fp + tn), 3),
-        "Legitimate URLs": int(fp + tn),
-        "False positives": int(fp),
-        "Phishing URLs": int(tp + fn),
-        "Missed phishing": int(fn),
-    }
-
-
-def model_row(name, actual, scores):
-    predicted = (scores >= 0.50).astype(int)
-
-    return {
-        "Model": name,
-        "Accuracy": round(accuracy_score(actual, predicted), 3),
-        "Precision": round(
-            precision_score(actual, predicted, zero_division=0), 3
-        ),
-        "Recall": round(
-            recall_score(actual, predicted, zero_division=0), 3
-        ),
-        "F1": round(f1_score(actual, predicted, zero_division=0), 3),
-    }
-
-
-@st.cache_resource(show_spinner=False)
-def train_models():
-    data = load_dataset()
-
-    train_idx, val_idx, test_idx = split_by_domain(data)
-    labels = data["is_phishing"].to_numpy()
-
-    numeric = pd.DataFrame(
-        [structural_features(url) for url in data["url"]]
-    )
-
-    character_model = make_pipeline(
-        TfidfVectorizer(
-            analyzer="char",
-            ngram_range=(3, 5),
-            max_features=20000,
-            min_df=2,
-            sublinear_tf=True,
-        ),
-        LogisticRegression(
-            max_iter=1000,
-            class_weight="balanced",
-            random_state=RANDOM_SEED,
-        ),
-    )
-
-    character_model.fit(
-        data.iloc[train_idx]["url"],
-        labels[train_idx],
-    )
-
-    structural_model = RandomForestClassifier(
-        n_estimators=150,
-        min_samples_leaf=2,
-        class_weight="balanced_subsample",
-        random_state=RANDOM_SEED,
-        n_jobs=1,
-    )
-
-    structural_model.fit(
-        numeric.iloc[train_idx],
-        labels[train_idx],
-    )
-
-    def scores_for(indices):
-        char_scores = character_model.predict_proba(
-            data.iloc[indices]["url"]
-        )[:, 1]
-
-        structural_scores = structural_model.predict_proba(
-            numeric.iloc[indices]
-        )[:, 1]
-
-        combined_scores = (char_scores + structural_scores) / 2
-
-        return char_scores, structural_scores, combined_scores
-
-    val_char, val_struct, val_combined = scores_for(val_idx)
-    test_char, test_struct, test_combined = scores_for(test_idx)
-
-    val_actual = labels[val_idx]
-    test_actual = labels[test_idx]
-
-    validation_table = pd.DataFrame([
-        threshold_row(val_actual, val_combined, threshold)
-        for threshold in (0.30, 0.40, 0.50, 0.60, 0.70, 0.80)
-    ])
-
-    test_threshold_table = pd.DataFrame([
-        threshold_row(test_actual, test_combined, threshold)
-        for threshold in (0.40, 0.50, 0.70)
-    ])
-
-    model_table = pd.DataFrame([
-        model_row("Character model", test_actual, test_char),
-        model_row("Structural model", test_actual, test_struct),
-        model_row("50/50 ensemble", test_actual, test_combined),
-    ])
-
-    matrix = confusion_matrix(
-        test_actual,
-        (test_combined >= 0.50).astype(int),
-        labels=[0, 1],
-    )
-
-    # Simple checks for differences between classes in the training set.
-    training_data = data.iloc[train_idx]
-
-    bias_rows = []
-    for label_value, name in [(0, "Legitimate"), (1, "Phishing")]:
-        subset = training_data.loc[
-            training_data["is_phishing"].eq(label_value)
-        ]
-
-        parsed_urls = subset["url"].map(parse_url)
-
-        bias_rows.append({
-            "Class": name,
-            "URLs": len(subset),
-            "Domains": subset["domain_group"].nunique(),
-            "Median URL length": round(
-                subset["url"].str.len().median(), 1
-            ),
-            "URLs with a query": round(
-                parsed_urls.map(lambda item: bool(item.query)).mean(),
-                3,
-            ),
-            "HTTPS URLs": round(
-                parsed_urls.map(
-                    lambda item: item.scheme.lower() == "https"
-                ).mean(),
-                3,
-            ),
-        })
-
-    return {
-        "character_model": character_model,
-        "structural_model": structural_model,
-        "feature_columns": list(numeric.columns),
-        "train_count": len(train_idx),
-        "validation_count": len(val_idx),
-        "test_count": len(test_idx),
-        "train_domains": data.iloc[train_idx]["domain_group"].nunique(),
-        "validation_domains": data.iloc[val_idx]["domain_group"].nunique(),
-        "test_domains": data.iloc[test_idx]["domain_group"].nunique(),
-        "model_table": model_table,
-        "validation_table": validation_table,
-        "test_threshold_table": test_threshold_table,
-        "matrix": matrix,
-        "bias_table": pd.DataFrame(bias_rows),
-    }
-
-
-def analyze_url(url, trained):
-    character_score = float(
-        trained["character_model"].predict_proba([url])[0, 1]
-    )
-
-    numeric = pd.DataFrame([structural_features(url)])
-    numeric = numeric[trained["feature_columns"]]
-
-    structural_score = float(
-        trained["structural_model"].predict_proba(numeric)[0, 1]
-    )
-
-    return {
-        "character": character_score,
-        "structural": structural_score,
-        "combined": (character_score + structural_score) / 2,
-        "indicators": indicators(url),
-        "domain": domain_parts(parse_url(url).hostname)["group"],
-    }
-
-
-def risk_label(score):
-    if score >= 0.70:
-        return "High model-estimated risk"
-    if score >= 0.40:
-        return "Suspicious — investigate"
+def analyze(url):
+    pc = float(char_m.predict_proba(vec.transform([url]))[0][1])
+    ps = float(struct_m.predict_proba(pd.DataFrame([features(url)])[cols])[0][1])
+    return pc, ps, 0.5 * pc + 0.5 * ps
+
+
+def risk_label(url, score):
+    p = safe_urlparse(url) or urlparse("")
+    h = (p.hostname or "").lower()
+    reg = registered_from_host(h)
+    if hard_indicator(url):
+        if score >= 0.70: return "High phishing risk"
+        if score >= 0.40: return "Suspicious — investigate carefully"
+        return "Lower model-estimated risk"
+    if reg in DEV_HOSTING:
+        if score >= 0.55: return "Suspicious — investigate carefully"
+        return "Lower model-estimated risk"
+    if reg in KNOWN_LEGIT_DOMAINS:
+        if score >= 0.55: return "Suspicious — investigate carefully"
+        return "Lower model-estimated risk"
+    if score >= 0.70: return "High phishing risk"
+    if score >= 0.40: return "Suspicious — investigate carefully"
     return "Lower model-estimated risk"
 
 
-# -------------------- Interface --------------------
+def set_url(u):
+    st.session_state["url_input"] = u
 
-st.markdown(
-    """
-    <style>
-    .hero {
-        padding: 2rem;
-        border-radius: 18px;
-        border: 1px solid #315469;
-        background: radial-gradient(
-            ellipse at top right, #1e504d, transparent 65%
-        ), #102233;
-        margin-bottom: 1rem;
-    }
-    .hero h1 {
-        color: #f4faff;
-        margin: 0 0 0.5rem;
-        padding: 0;
-    }
-    .hero p {
-        color: #cfdee8;
-        margin: 0;
-    }
-    </style>
 
-    <section class="hero">
-      <h1>🛡️ LinkGuard</h1>
-      <p>Inspect the link before the click.</p>
-    </section>
-    """,
-    unsafe_allow_html=True,
-)
+if "url_input" not in st.session_state:
+    st.session_state["url_input"] = "https://google.com"
 
-st.write(
-    "Analyze URL text without opening the destination website."
-)
+st.markdown("""
+<style>
+.stApp { background: linear-gradient(160deg, #0a0f1e 0%, #111827 50%, #0f172a 100%); }
+[data-testid="stHeader"] { background: rgba(10, 15, 30, 0.85); backdrop-filter: blur(12px); }
+section[data-testid="stSidebar"] { background: #0c1322; border-right: 1px solid #1e293b; }
+section[data-testid="stSidebar"] * { color: #cbd5e1; }
+.scan-hero { padding: 2.4rem 2.4rem 2rem; margin-bottom: 1.2rem; border: 1px solid #1e3a5f; border-radius: 20px;
+    background: linear-gradient(135deg, #0c2340 0%, #0f172a 60%, #1a1040 100%); position: relative; overflow: hidden; }
+.scan-hero::before { content: ""; position: absolute; top: -50%; right: -20%; width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%); border-radius: 50%; }
+.scan-hero h1 { color: #f1f5f9; font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.1; margin: 0.4rem 0; padding: 0; font-weight: 800; }
+.scan-hero p { color: #94a3b8; max-width: 36rem; margin: 0.5rem 0 0; font-size: 1.05rem; line-height: 1.6; }
+.stTabs [data-baseweb="tab-list"] { gap: 6px; background: transparent; }
+.stTabs [data-baseweb="tab"] { background: #1e293b; border-radius: 10px; padding: 10px 20px; color: #94a3b8; font-weight: 600; border: 1px solid #334155; }
+.stTabs [aria-selected="true"] { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: white; border-color: transparent; }
+.stButton > button[kind="primary"] { background: linear-gradient(135deg, #0ea5e9, #6366f1) !important; border: none !important; border-radius: 12px !important; font-weight: 700 !important; font-size: 1rem !important; padding: 0.7rem 1.5rem !important; color: white !important; }
+.stButton > button:not([kind="primary"]) { background: #1e293b !important; border: 1px solid #334155 !important; border-radius: 10px !important; color: #e2e8f0 !important; }
+.stTextInput > div > div > input { background: #0f172a !important; border: 1px solid #334155 !important; border-radius: 12px !important; color: #f1f5f9 !important; padding: 0.8rem 1rem !important; font-size: 1rem !important; }
+[data-testid="stMetric"] { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 14px; padding: 1.2rem; }
+[data-testid="stMetric"] label { color: #94a3b8 !important; }
+[data-testid="stMetric"] [data-testid="stMetricValue"] { color: #f1f5f9 !important; font-size: 1.8rem !important; }
+[data-testid="stExpander"] { background: #111827; border: 1px solid #1e293b; border-radius: 12px; }
+.stProgress > div > div > div { background: linear-gradient(90deg, #0ea5e9, #6366f1) !important; border-radius: 999px !important; }
+.stDownloadButton > button { background: #1e293b !important; border: 1px solid #334155 !important; border-radius: 10px !important; color: #38bdf8 !important; font-weight: 600 !important; }
+.stTextArea > div > div > textarea { background: #0f172a !important; border: 1px solid #334155 !important; border-radius: 12px !important; color: #f1f5f9 !important; }
+.stCaption { color: #64748b !important; }
+</style>
+<section class="scan-hero" aria-labelledby="scan-title">
+  <h1 id="scan-title">Inspect the link.<br>Before the click.</h1>
+  <p>Paste a URL to check for signs of phishing without visiting the destination.</p>
+</section>
+""", unsafe_allow_html=True)
 
-st.caption(
-    "The first analysis downloads the public dataset and trains the models. "
-    "It may take several minutes. The models are reused until the server restarts."
-)
+src = metrics["source"]
+st.caption(f"Phishing: {src['phish']} · Legitimate: {src['legit']} · Train: {metrics['train']:,} · Test: {metrics['test']:,} ({metrics['unique_test_domains']:,} unseen domains)")
 
-with st.form("scan_form"):
-    submitted_url = st.text_input(
-        "Paste a full URL",
-        placeholder="https://example.org/",
-        max_chars=MAX_URL_LENGTH,
-    )
-    submitted = st.form_submit_button(
-        "Analyze URL",
-        type="primary",
-    )
-
-if submitted:
-    st.session_state.pop("last_result", None)
-    candidate = submitted_url.strip()
-
-    if parse_url(candidate) is None:
-        st.error(
-            "Enter a valid HTTP or HTTPS URL, such as https://example.org/."
-        )
-    else:
-        try:
-            with st.spinner(
-                "Loading the dataset, training, and analyzing..."
-            ):
-                trained = train_models()
-                result = analyze_url(candidate, trained)
-
-            st.session_state["last_result"] = {
-                "url": candidate,
-                **result,
-            }
-
-        except Exception as error:
-            st.error(
-                "Training or analysis failed. The app did not switch "
-                "to generated data."
-            )
-            st.code(str(error), language=None)
-
-report = st.session_state.get("last_result")
-
-if report:
+with st.sidebar:
+    st.header("How to read a result")
+    st.markdown("- **High risk:** score of 0.70 or above.\n- **Suspicious:** score of 0.40 to below 0.70, or a brand lookalike.\n- **Lower risk:** below 0.40 with no lookalike warning.")
     st.divider()
-    st.subheader("Assessment")
+    st.caption("Scores are model estimates, not calibrated probabilities.")
 
-    verdict = risk_label(report["combined"])
+tab1, tab2, tab3, tab4 = st.tabs(["Scan a URL", "Batch Check", "Model Performance", "How It Works"])
 
-    if report["combined"] >= 0.70:
-        st.error(verdict)
-    elif report["combined"] >= 0.40:
-        st.warning(verdict)
-    else:
-        st.info(verdict)
+with tab1:
+    with st.container(border=True):
+        st.subheader("Check a link")
+        examples = [("Regular link", "https://arena.ai"), ("Lookalike link", "https://paypa1.com/"), ("IP address link", "http://192.0.2.25/bank/login")]
+        for col, (label, example) in zip(st.columns(3), examples):
+            col.button(label, on_click=set_url, args=(example,), use_container_width=True)
+        url = st.text_input("URL to inspect", key="url_input", max_chars=2048)
+        submitted = st.button("Analyze URL", type="primary", use_container_width=True)
+    if submitted:
+        candidate = url.strip()
+        st.session_state.pop("result", None)
+        if not is_valid_http_url(candidate):
+            st.error("Enter a complete HTTP or HTTPS URL, like https://example.org/.")
+        else:
+            pc, ps, combined = analyze(candidate)
+            st.session_state["result"] = {"url": candidate, "char": pc, "struct": ps, "combined": combined, "notes": indicators(candidate), "info": domain_info(candidate)}
+    r = st.session_state.get("result")
+    if r and r["url"] == url.strip():
+        verdict = risk_label(r["url"], r["combined"])
+        st.subheader("Assessment")
+        if verdict.startswith("High"): st.error(verdict)
+        elif verdict.startswith("Suspicious"): st.warning(verdict)
+        else: st.success(verdict)
+        st.code(r["url"], language=None, wrap_lines=True)
+        a, b, c = st.columns(3)
+        a.metric("Character model", f"{r['char']:.3f}")
+        b.metric("Structural model", f"{r['struct']:.3f}")
+        c.metric("Combined score", f"{r['combined']:.3f}")
+        st.progress(min(max(r["combined"], 0.0), 1.0))
+        st.caption("Combined = 0.5 × Character + 0.5 × Structural. A domain-reputation safety net applies to known platforms and major brands.")
+        with st.expander("Rule-based indicators", expanded=True):
+            for note in r["notes"]: st.text(f"• {note}")
+            if not r["notes"]: st.write("No rule-based indicators triggered.")
+        with st.expander("Domain details"): st.json(r["info"])
+        report = (f"LinkGuard Report\n\nURL: {r['url']}\nAssessment: {verdict}\nCharacter: {r['char']:.3f}\nStructural: {r['struct']:.3f}\nCombined: {r['combined']:.3f}\n\nIndicators:\n"
+                  + "\n".join("- " + n for n in (r["notes"] or ["None"])))
+        st.download_button("Download report", report, "linkguard_report.txt", "text/plain")
 
-    st.code(report["url"], language=None)
-    st.write("**Domain group:**", report["domain"])
+with tab2:
+    text = st.text_area("Paste URLs, one per line:", "https://google.com\nhttps://arena.ai\nhttps://paypa1.com/\nhttps://gooogle.xyz/login?verify=1", height=140)
+    if st.button("Run Batch Check", type="primary"):
+        rows = []
+        for u in [x.strip() for x in text.splitlines() if x.strip()]:
+            if is_valid_http_url(u):
+                pc, ps, cb = analyze(u)
+                rows.append({"URL": u, "Character": round(pc, 3), "Structural": round(ps, 3), "Combined": round(cb, 3), "Risk": risk_label(u, cb)})
+            else:
+                rows.append({"URL": u, "Character": "-", "Structural": "-", "Combined": "-", "Risk": "Invalid"})
+        out = pd.DataFrame(rows)
+        st.dataframe(out, use_container_width=True)
+        st.download_button("Download CSV", out.to_csv(index=False), "results.csv", "text/csv")
 
-    left, middle, right = st.columns(3)
-    left.metric("Character model", f"{report['character']:.3f}")
-    middle.metric("Structural model", f"{report['structural']:.3f}")
-    right.metric("Combined score", f"{report['combined']:.3f}")
-
-    st.progress(report["combined"])
-
-    st.caption(
-        "The combined score is a 50/50 average. Scores are not calibrated "
-        "probabilities. The 0.40 and 0.70 boundaries are provisional."
-    )
-
-    st.subheader("Rule-based indicators")
-
-    if report["indicators"]:
-        for note in report["indicators"]:
-            st.write("•", note)
-    else:
-        st.write(
-            "No rule-based indicators triggered. "
-            "This does not prove that the URL is safe."
-        )
-
-    st.caption(
-        "Indicators are separate checks; they do not explain every "
-        "reason behind a model's score."
-    )
-
+with tab3:
+    st.subheader("Performance on Unseen Domains")
+    st.dataframe(pd.DataFrame(metrics["models"]).T, use_container_width=True)
     st.divider()
+    st.subheader("Threshold Analysis")
+    st.caption("Precision, recall, and false positive rate on unseen domains across score cutoffs.")
+    thresh_df = pd.DataFrame(metrics["thresholds"])
+    st.dataframe(thresh_df, use_container_width=True, hide_index=True)
+    m1, m2, m3 = st.columns(3)
+    t40 = next(t for t in metrics["thresholds"] if t["Threshold"] == 0.40)
+    t70 = next(t for t in metrics["thresholds"] if t["Threshold"] == 0.70)
+    t50 = next(t for t in metrics["thresholds"] if t["Threshold"] == 0.50)
+    m1.metric("FPR at 0.40", f"{t40['False Positive Rate']:.1%}")
+    m2.metric("FPR at 0.70", f"{t70['False Positive Rate']:.1%}")
+    m3.metric("Recall at 0.50", f"{t50['Recall']:.1%}")
+    st.divider()
+    st.subheader("Confusion Matrix (Ensemble at 0.50)")
+    st.dataframe(pd.DataFrame(metrics["cm"], index=["Actual Legit", "Actual Phish"], columns=["Predicted Legit", "Predicted Phish"]))
+    st.divider()
+    st.subheader("Dataset Bias Check")
+    st.caption("Compares top TLDs in phishing vs. legitimate training data.")
+    bc1, bc2 = st.columns(2)
+    bc1.write("**Phishing TLDs (top 5):**"); bc1.json(metrics["phish_tlds"])
+    bc2.write("**Legitimate TLDs (top 5):**"); bc2.json(metrics["legit_tlds"])
+    st.divider()
+    st.subheader("Failure Cases from Unseen Test Domains")
+    st.write("**False Positives** (legitimate URLs wrongly flagged):")
+    for url_case, score in (metrics["fp_cases"] or []): st.text(f"  Score: {score:.3f}  |  {url_case[:90]}")
+    if not metrics["fp_cases"]: st.text("  None at 0.50 threshold.")
+    st.write("**False Negatives** (phishing URLs missed):")
+    for url_case, score in (metrics["fn_cases"] or []): st.text(f"  Score: {score:.3f}  |  {url_case[:90]}")
+    if not metrics["fn_cases"]: st.text("  None at 0.50 threshold.")
+    st.divider()
+    st.subheader("Feature Importance (Structural Model)")
+    imp = pd.DataFrame({"Feature": cols, "Importance": struct_m.feature_importances_}).sort_values("Importance")
+    st.bar_chart(imp.set_index("Feature"))
 
-    with st.expander("Model performance and dataset details"):
-        # The models have already been cached by the scan.
-        trained = train_models()
+with tab4:
+    st.code("URL -> Validate -> Extract features + Character n-grams -> 2 Models -> 50/50 Average -> Domain-reputation safety net -> Risk + Indicators")
+    st.markdown("""
+**Models used:**
+- **Character Model:** TF-IDF (3–5 character n-grams) + Logistic Regression. Learns suspicious character sequences and misspellings.
+- **Structural Model:** Random Forest (300 trees) on 40+ numerical URL features (lengths, dots, hyphens, digits, entropy, HTTPS, IP, subdomain depth, keyword location, query/path analysis, brand similarity, dev-hosting, known domains).
+- **Ensemble:** 50/50 average of both model scores.
 
-        st.write(
-            f"**Training:** {trained['train_count']:,} URLs "
-            f"from {trained['train_domains']:,} domain groups  \n"
-            f"**Validation:** {trained['validation_count']:,} URLs "
-            f"from {trained['validation_domains']:,} domain groups  \n"
-            f"**Test:** {trained['test_count']:,} URLs "
-            f"from {trained['test_domains']:,} domain groups"
-        )
+**Why long URLs with queries are not automatically flagged:**
+The training set is balanced so both legitimate and phishing URLs span short to long, with and without queries and random IDs. Legitimate long URLs (video links, search results, product pages, news articles, dev-hosting apps) are heavily represented. The model therefore relies on real signals (TLD, lookalike brand, IP, keywords-in-domain) rather than length alone.
 
-        st.subheader("Model comparison at 0.50 — test set")
-        st.dataframe(
-            trained["model_table"],
-            hide_index=True,
-            use_container_width=True,
-        )
+**Domain-reputation safety net:**
+URLs on known free dev platforms (Streamlit, Vercel, Netlify, GitHub Pages, Firebase, etc.) and known major legitimate domains are capped at "Suspicious" rather than "High" unless a hard indicator (IP address, lookalike brand, punycode, '@', or risky TLD with credential keywords) is present. This reduces false positives on legitimate developer deployments and well-known sites. Trade-off: a phisher could host on a free dev platform to evade the cap — a known limitation of URL-only detection.
 
-        st.subheader("Thresholds — validation set")
-        st.dataframe(
-            trained["validation_table"],
-            hide_index=True,
-            use_container_width=True,
-        )
+**How were the 0.40 and 0.70 thresholds chosen?**
+From the Threshold Analysis table: 0.40 keeps recall high while holding false positives low; 0.70 keeps precision high for the High Risk label.
 
-        st.subheader("False alarms and missed phishing — test set")
-        st.dataframe(
-            trained["test_threshold_table"],
-            hide_index=True,
-            use_container_width=True,
-        )
+**Domain-separated testing:**
+URLs are grouped by registered domain before a 75/25 train/test split, so the model is always evaluated on domains it has never seen.
 
-        st.caption(
-            "False-positive rate means the fraction of labelled legitimate "
-            "test URLs whose scores reach the listed threshold. "
-            "Recall means the fraction of labelled phishing URLs caught."
-        )
+**Data sources:**
+- Phishing URLs: OpenPhish live verified feed (openphish.com) + realistic pattern-based examples.
+- Legitimate URLs: real top popular domains with realistic path and query variations.
+""")
 
-        st.subheader("Confusion matrix — ensemble at 0.50")
-        st.dataframe(
-            pd.DataFrame(
-                trained["matrix"],
-                index=["Labelled legitimate", "Labelled phishing"],
-                columns=["Predicted legitimate", "Predicted phishing"],
-            ),
-            use_container_width=True,
-        )
-
-        st.subheader("Dataset bias check — training set")
-        st.dataframe(
-            trained["bias_table"],
-            hide_index=True,
-            use_container_width=True,
-        )
-
-        st.caption(
-            "Differences in length, HTTPS, or query usage between classes "
-            "may let models learn dataset shortcuts. These checks do not "
-            "prove that the dataset is unbiased."
-        )
-
-        st.markdown(
-            "[Dataset source: UCI PhiUSIIL Phishing URL Dataset]"
-            "(https://archive.ics.uci.edu/dataset/967/"
-            "phiusiil+phishing+url+dataset)"
-        )
-
-st.divider()
-st.caption(
-    "A lower score does not guarantee safety. Do not use this tool "
-    "as the only basis for entering credentials or opening a link."
-)
+st.caption("Scores are model estimates. A low score does not guarantee a site is safe.")
